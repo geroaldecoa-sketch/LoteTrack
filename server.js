@@ -19,7 +19,7 @@ let _config = { empresa: 'Base de Alimentos Navarro S.A.', password: 'lotemania'
 async function initDB() {
   const uri = process.env.MONGODB_URI;
   if (!uri) { console.warn('⚠ MONGODB_URI no definida — datos solo en memoria'); return; }
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, { tls: true, tlsAllowInvalidCertificates: false, serverApi: { version: '1' } });
   await client.connect();
   db = client.db('lotetrack');
   console.log('✓ MongoDB conectado');
@@ -826,3 +826,4 @@ initDB()
     console.error('Error conectando MongoDB:', err.message);
     app.listen(PORT, () => console.log(`\n✓ LoteTrack en http://localhost:${PORT} (sin DB)\n`));
   });
+
