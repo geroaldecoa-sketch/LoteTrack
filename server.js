@@ -11,12 +11,18 @@ const path     = require('path');
 const app     = express();
 const PORT    = process.env.PORT || 3000;
 // En Render usamos el disco persistente montado en /data; localmente, la carpeta del proyecto
-const DATADIR = process.env.NODE_ENV === 'production' ? '/data' : __dirname;
+function resolverDataDir() {
+  if (process.env.NODE_ENV !== 'production') return __dirname;
+  // En Render: intentar disco persistente, si no /tmp (ephemeral pero funciona)
+  for (const d of ['/data', '/tmp']) {
+    try { fs.mkdirSync(d, { recursive: true }); return d; } catch(e) {}
+  }
+  return __dirname;
+}
+const DATADIR = resolverDataDir();
 const DATA    = path.join(DATADIR, 'lotemania.json');
 const CONFIG  = path.join(DATADIR, 'config.json');
-
-// Garantiza que el directorio de datos existe (necesario si el disco Render no está montado aún)
-if (!fs.existsSync(DATADIR)) fs.mkdirSync(DATADIR, { recursive: true });
+console.log('DATADIR:', DATADIR);
 
 function leerConfig() {
   if (!fs.existsSync(CONFIG))
