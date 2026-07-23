@@ -1,60 +1,60 @@
 'use strict';
 
-const express  = require('express');
-const multer   = require('multer');
-const pdfParse = require('pdf-parse');
-const XLSX     = require('xlsx');
-const PDFDoc   = require('pdfkit');
-const fs       = require('fs');
-const path     = require('path');
+const express        = require('express');
+const multer         = require('multer');
+const pdfParse       = require('pdf-parse/lib/pdf-parse.js');
+const XLSX           = require('xlsx');
+const PDFDoc         = require('pdfkit');
+const path           = require('path');
+const { MongoClient} = require('mongodb');
 
-const app     = express();
-const PORT    = process.env.PORT || 3000;
-// En Render usamos el disco persistente montado en /data; localmente, la carpeta del proyecto
-function resolverDataDir() {
-  if (process.env.NODE_ENV !== 'production') return __dirname;
-  // En Render: intentar disco persistente, si no /tmp (ephemeral pero funciona)
-  for (const d of ['/data', '/tmp']) {
-    try { fs.mkdirSync(d, { recursive: true }); return d; } catch(e) {}
-  }
-  return __dirname;
-}
-const DATADIR = resolverDataDir();
-const DATA    = path.join(DATADIR, 'lotemania.json');
-const CONFIG  = path.join(DATADIR, 'config.json');
-console.log('DATADIR:', DATADIR);
+const app  = express();
+const PORT = process.env.PORT || 3000;
 
-function leerConfig() {
-  if (!fs.existsSync(CONFIG))
-    fs.writeFileSync(CONFIG, JSON.stringify({
-      empresa: 'Base de Alimentos Navarro S.A.', password: 'lotemania'
-    }, null, 2));
-  return JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
+// ── MongoDB + cache en memoria ────────────────────────────────────────────────
+let db;
+let _data   = { proveedores: [], productos: [], lotes: [], ventas: [] };
+let _config = { empresa: 'Base de Alimentos Navarro S.A.', password: 'lotemania', logo: null };
+
+async function initDB() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) { console.warn('⚠ MONGODB_URI no definida — datos solo en memoria'); return; }
+  const client = new MongoClient(uri);
+  await client.connect();
+  db = client.db('lotetrack');
+  console.log('✓ MongoDB conectado');
+  const datos  = await db.collection('datos').findOne({ _id: 'main' });
+  const config = await db.collection('config').findOne({ _id: 'main' });
+  if (datos)  { const { _id, ...r } = datos;  _data   = { proveedores:[], productos:[], lotes:[], ventas:[], ...r }; }
+  if (config) { const { _id, ...r } = config; _config = { empresa:'Base de Alimentos Navarro S.A.', password:'lotemania', logo:null, ...r }; }
+  if (_config.logo) _config.logo = Buffer.from(_config.logo, 'base64');
 }
-function guardarConfig(c) { fs.writeFileSync(CONFIG, JSON.stringify(c, null, 2)); }
+
+function leer() { return _data; }
+function guardar(d) {
+  _data = d;
+  if (db) db.collection('datos').replaceOne({ _id:'main' }, { _id:'main', ...d }, { upsert:true }).catch(console.error);
+}
+function leerConfig() { return _config; }
+function guardarConfig(c) {
+  _config = c;
+  const toSave = { ...c, logo: c.logo ? c.logo.toString('base64') : null };
+  if (db) db.collection('config').replaceOne({ _id:'main' }, { _id:'main', ...toSave }, { upsert:true }).catch(console.error);
+}
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Sirve el logo de empresa desde el disco persistente (en prod no está en public/)
+// Sirve el logo desde la config en memoria / MongoDB
 app.get('/logo-empresa.png', (req, res) => {
-  const p = path.join(DATADIR, 'logo-empresa.png');
-  if (fs.existsSync(p)) res.sendFile(p);
+  const logo = leerConfig().logo;
+  if (logo) res.type('png').send(logo);
   else res.status(404).end();
 });
 
-// ── Persistencia ──────────────────────────────────────────────────────────────
-function leer() {
-  if (!fs.existsSync(DATA))
-    fs.writeFileSync(DATA, JSON.stringify({ proveedores: [], productos: [], lotes: [], ventas: [] }, null, 2));
-  const d = JSON.parse(fs.readFileSync(DATA, 'utf8'));
-  if (!d.proveedores) d.proveedores = [];
-  if (!d.productos)   d.productos   = [];
-  return d;
-}
-function guardar(d) { fs.writeFileSync(DATA, JSON.stringify(d, null, 2)); }
+// ── Persistencia helpers ──────────────────────────────────────────────────────
 function nuevoId(p, lista) { return `${p}-${String(lista.length + 1).padStart(3, '0')}`; }
 
 // ── Conversiones ──────────────────────────────────────────────────────────────
@@ -195,8 +195,7 @@ function parsearFactura(texto) {
 // ── CONFIG / LOGIN / LOGO ─────────────────────────────────────────────────────
 app.get('/api/config', (req, res) => {
   const c = leerConfig();
-  const logoPath = path.join(DATADIR, 'logo-empresa.png');
-  res.json({ empresa: c.empresa, tienePassword: !!c.password, tienelogo: fs.existsSync(logoPath) });
+  res.json({ empresa: c.empresa, tienePassword: !!c.password, tienelogo: !!c.logo });
 });
 
 app.post('/api/config', (req, res) => {
@@ -218,14 +217,17 @@ app.post('/api/login', (req, res) => {
 app.post('/api/config/logo', upload.single('logo'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Sin archivo' });
-    fs.writeFileSync(path.join(DATADIR, 'logo-empresa.png'), req.file.buffer);
+    const c = leerConfig();
+    c.logo = req.file.buffer;
+    guardarConfig(c);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/config/logo', (req, res) => {
-  const p = path.join(DATADIR, 'logo-empresa.png');
-  if (fs.existsSync(p)) fs.unlinkSync(p);
+  const c = leerConfig();
+  c.logo = null;
+  guardarConfig(c);
   res.json({ ok: true });
 });
 
@@ -719,10 +721,10 @@ function pdfTabla(doc, cols, filas, titulo) {
 }
 
 function pdfHeader(doc, titulo, empresa, filtros) {
-  const logoPath = path.join(DATADIR, 'logo-empresa.png');
+  const logo = leerConfig().logo;
   let startX = 40;
-  if (fs.existsSync(logoPath)) {
-    try { doc.image(logoPath, 40, 35, { height: 40 }); startX = 120; } catch(e) {}
+  if (logo) {
+    try { doc.image(logo, 40, 35, { height: 40 }); startX = 120; } catch(e) {}
   }
   doc.fontSize(17).font('Helvetica-Bold').fillColor('#0d1b4b')
      .text('Lote', startX, 38, { continued: true, align: 'left' });
@@ -818,4 +820,9 @@ app.get('/api/export/pdf', (req, res) => {
 });
 
 // ── Inicio ────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => console.log(`\n✓ LoteTrack en http://localhost:${PORT}\n`));
+initDB()
+  .then(() => app.listen(PORT, () => console.log(`\n✓ LoteTrack en http://localhost:${PORT}\n`)))
+  .catch(err => {
+    console.error('Error conectando MongoDB:', err.message);
+    app.listen(PORT, () => console.log(`\n✓ LoteTrack en http://localhost:${PORT} (sin DB)\n`));
+  });
