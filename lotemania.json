@@ -1,0 +1,102 @@
+{
+  "lotes": [
+    {
+      "id": "LOT-001",
+      "fecha": "2026-07-13",
+      "proveedor": "JM Falavigna S.A",
+      "factura": "0008-00001198",
+      "remito": "0001-00001712",
+      "producto": "Aceite refinado Girasol",
+      "toneladas": 29.64,
+      "litros_total": 32011.2,
+      "litros_disponibles": 0
+    },
+    {
+      "id": "LOT-002",
+      "fecha": "2026-07-22",
+      "proveedor": "JM Falavigna S.A",
+      "factura": "0008-00001215",
+      "remito": "0001-00001723",
+      "producto": "Aceite refinado Girasol",
+      "toneladas": 30.14,
+      "litros_total": 32551.2,
+      "litros_disponibles": 25876.8
+    }
+  ],
+  "ventas": [
+    {
+      "id": "VTA-001",
+      "fecha": "2026-07-14",
+      "cliente": "GYULAND S.R.L.",
+      "factura": "0002-00000161",
+      "remito": "0002-00000257",
+      "items": [
+        {
+          "producto": "900ml",
+          "cantidad": 26520,
+          "litros_unitarios": 0.9,
+          "litros_total": 23868
+        }
+      ],
+      "litros_total": 23868,
+      "consumo_lotes": [
+        {
+          "lote_id": "LOT-001",
+          "proveedor": "JM Falavigna S.A",
+          "factura_compra": "0008-00001198",
+          "litros_usados": 23868
+        }
+      ]
+    },
+    {
+      "id": "VTA-002",
+      "fecha": "2026-07-13",
+      "cliente": "LUJAIKO S. R. L.",
+      "factura": "0002-00000160",
+      "remito": "0002-00000256",
+      "items": [
+        {
+          "producto": "900ml",
+          "cantidad": 8232,
+          "litros_unitarios": 0.9,
+          "litros_total": 7408.8
+        },
+        {
+          "producto": "900ml",
+          "cantidad": 8232,
+          "litros_unitarios": 0.9,
+          "litros_total": 7408.8
+        }
+      ],
+      "litros_total": 14817.6,
+      "consumo_lotes": [
+        {
+          "lote_id": "LOT-001",
+          "proveedor": "JM Falavigna S.A",
+          "factura_compra": "0008-00001198",
+          "litros_usados": 8143.2
+        },
+        {
+          "lote_id": "LOT-002",
+          "proveedor": "JM Falavigna S.A",
+          "factura_compra": "0008-00001215",
+          "litros_usados": 6674.4
+        }
+      ]
+    }
+  ],
+  "proveedores": [
+    {
+      "id": "PRV-001",
+      "nombre": "JM Falavigna S.A",
+      "cuit": "30-71437485-7",
+      "contacto": ""
+    }
+  ],
+  "productos": [
+    {
+      "id": "PRD-001",
+      "nombre": "Aceite refinado Girasol"
+    }
+  ]
+}

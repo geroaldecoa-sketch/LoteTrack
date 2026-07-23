@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: lotetrack
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: lotetrack-data
+      mountPath: /data
+      sizeGB: 1
