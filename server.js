@@ -6,40 +6,42 @@ const pdfParse       = require('pdf-parse/lib/pdf-parse.js');
 const XLSX           = require('xlsx');
 const PDFDoc         = require('pdfkit');
 const path           = require('path');
-const { MongoClient} = require('mongodb');
+const { Pool } = require('pg');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ── MongoDB + cache en memoria ────────────────────────────────────────────────
-let db;
+// ── PostgreSQL + cache en memoria ─────────────────────────────────────────────
+let pool;
 let _data   = { proveedores: [], productos: [], lotes: [], ventas: [] };
 let _config = { empresa: 'Base de Alimentos Navarro S.A.', password: 'lotemania', logo: null };
 
 async function initDB() {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) { console.warn('⚠ MONGODB_URI no definida — datos solo en memoria'); return; }
-  const client = new MongoClient(uri, { tls: true, tlsAllowInvalidCertificates: false, serverApi: { version: '1' } });
-  await client.connect();
-  db = client.db('lotetrack');
-  console.log('✓ MongoDB conectado');
-  const datos  = await db.collection('datos').findOne({ _id: 'main' });
-  const config = await db.collection('config').findOne({ _id: 'main' });
-  if (datos)  { const { _id, ...r } = datos;  _data   = { proveedores:[], productos:[], lotes:[], ventas:[], ...r }; }
-  if (config) { const { _id, ...r } = config; _config = { empresa:'Base de Alimentos Navarro S.A.', password:'lotemania', logo:null, ...r }; }
+  const uri = process.env.DATABASE_URL;
+  if (!uri) { console.warn('⚠ DATABASE_URL no definida — datos solo en memoria'); return; }
+  pool = new Pool({ connectionString: uri, ssl: { rejectUnauthorized: false } });
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lotetrack_datos  (id TEXT PRIMARY KEY, data JSONB);
+    CREATE TABLE IF NOT EXISTS lotetrack_config (id TEXT PRIMARY KEY, data JSONB);
+  `);
+  console.log('✓ PostgreSQL conectado');
+  const rd = await pool.query("SELECT data FROM lotetrack_datos  WHERE id='main'");
+  const rc = await pool.query("SELECT data FROM lotetrack_config WHERE id='main'");
+  if (rd.rows[0]) _data   = { proveedores:[], productos:[], lotes:[], ventas:[], ...rd.rows[0].data };
+  if (rc.rows[0]) _config = { empresa:'Base de Alimentos Navarro S.A.', password:'lotemania', logo:null, ...rc.rows[0].data };
   if (_config.logo) _config.logo = Buffer.from(_config.logo, 'base64');
 }
 
 function leer() { return _data; }
 function guardar(d) {
   _data = d;
-  if (db) db.collection('datos').replaceOne({ _id:'main' }, { _id:'main', ...d }, { upsert:true }).catch(console.error);
+  if (pool) pool.query("INSERT INTO lotetrack_datos(id,data) VALUES('main',$1) ON CONFLICT(id) DO UPDATE SET data=$1", [d]).catch(console.error);
 }
 function leerConfig() { return _config; }
 function guardarConfig(c) {
   _config = c;
   const toSave = { ...c, logo: c.logo ? c.logo.toString('base64') : null };
-  if (db) db.collection('config').replaceOne({ _id:'main' }, { _id:'main', ...toSave }, { upsert:true }).catch(console.error);
+  if (pool) pool.query("INSERT INTO lotetrack_config(id,data) VALUES('main',$1) ON CONFLICT(id) DO UPDATE SET data=$1", [toSave]).catch(console.error);
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────────
@@ -826,4 +828,5 @@ initDB()
     console.error('Error conectando MongoDB:', err.message);
     app.listen(PORT, () => console.log(`\n✓ LoteTrack en http://localhost:${PORT} (sin DB)\n`));
   });
+
 
