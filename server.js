@@ -15,6 +15,9 @@ const DATADIR = process.env.NODE_ENV === 'production' ? '/data' : __dirname;
 const DATA    = path.join(DATADIR, 'lotemania.json');
 const CONFIG  = path.join(DATADIR, 'config.json');
 
+// Garantiza que el directorio de datos existe (necesario si el disco Render no está montado aún)
+if (!fs.existsSync(DATADIR)) fs.mkdirSync(DATADIR, { recursive: true });
+
 function leerConfig() {
   if (!fs.existsSync(CONFIG))
     fs.writeFileSync(CONFIG, JSON.stringify({
