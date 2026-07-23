@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LoteTrack</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --lt-navy:  #0d1b4b;
+    --lt-blue:  #2563eb;
+    --lt-blue2: #1d4ed8;
+    --lt-green: #10d9a0;
+    --lt-light: #eff6ff;
+  }
+  body { background:#f0f4fb; font-size:14px; font-family:'Inter',sans-serif; }
+
+  /* Navbar */
+  .navbar { background: var(--lt-navy) !important; padding:0 20px; height:56px; }
+  .navbar-brand { font-weight:700; letter-spacing:.5px; color:#fff !important; font-size:20px; }
+  .brand-lote  { color:#fff; }
+  .brand-track { color:#60a5fa; }
+
+  /* Tabs */
+  .nav-tab { cursor:pointer; padding:9px 16px; border-radius:8px 8px 0 0; border:1px solid #dde3f0; border-bottom:none; background:#e8edf8; white-space:nowrap; font-size:12.5px; color:#4b5a7a; font-weight:500; transition:background .15s; }
+  .nav-tab:hover { background:#d8e4f8; }
+  .nav-tab.active { background:#fff; font-weight:600; color:var(--lt-blue); }
+
+  /* Cards */
+  .card { border:none; border-radius:12px; box-shadow:0 2px 10px rgba(13,27,75,.08); }
+  .kpi-card { border-left:4px solid var(--lt-blue); }
+
+  /* Badges */
+  .badge-lote  { background:#dbeafe; color:#1e40af; border-radius:5px; padding:2px 8px; font-size:11.5px; font-weight:600; }
+  .badge-venta { background:#d1fae5; color:#065f46; border-radius:5px; padding:2px 8px; font-size:11.5px; font-weight:600; }
+  .badge-prv   { background:#ede9fe; color:#4c1d95; border-radius:5px; padding:2px 8px; font-size:11.5px; font-weight:600; }
+  .badge-prd   { background:#fef9c3; color:#713f12; border-radius:5px; padding:2px 8px; font-size:11.5px; font-weight:600; }
+
+  /* Tables */
+  .tbl th { background:var(--lt-navy); color:#fff; font-weight:500; font-size:12.5px; }
+  .tbl td, .tbl th { padding:9px 13px; vertical-align:middle; }
+  .tbl tbody tr:hover { background:#f5f8ff; }
+
+  /* Misc */
+  .progress { height:7px; border-radius:4px; }
+  .section { display:none; } .section.active { display:block; }
+  .upload-zone { border:2px dashed #c7d7f5; border-radius:12px; padding:36px; text-align:center; cursor:pointer; transition:all .2s; background:#f8faff; }
+  .upload-zone:hover,.upload-zone.drag { border-color:var(--lt-blue); background:#eff6ff; }
+  .result-box { background:#f8faff; border-radius:10px; padding:20px; border-left:4px solid var(--lt-blue); }
+  #toast { position:fixed; bottom:24px; right:24px; z-index:9999; min-width:280px; }
+  .select-combo select { border-bottom-left-radius:0; border-bottom-right-radius:0; border-bottom:none; }
+  .select-combo input  { border-top-left-radius:0; border-top-right-radius:0; background:#fafbff; }
+  .btn-primary { background:var(--lt-blue); border-color:var(--lt-blue); }
+  .btn-primary:hover { background:var(--lt-blue2); border-color:var(--lt-blue2); }
+  .text-primary { color:var(--lt-blue) !important; }
+
+  /* Login */
+  #login-overlay {
+    position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(145deg, var(--lt-navy) 0%, #1a3a8c 60%, #1d4ed8 100%);
+  }
+  #login-card {
+    background:#fff; border-radius:20px; padding:48px 44px 40px;
+    width:380px; box-shadow:0 32px 80px rgba(13,27,75,.45);
+  }
+  #login-card img { max-height:90px; max-width:240px; object-fit:contain; }
+  .login-tagline { color:#64748b; font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; font-weight:500; }
+</style>
+</head>
+<body>
+
+<!-- ══════ LOGIN ══════ -->
+<div id="login-overlay">
+  <div id="login-card" class="text-center">
+    <!-- Logo de la APP (lotetrack-logo.png) -->
+    <div class="mb-2">
+      <img id="login-logo" src="/lotetrack-logo.png" alt="LoteTrack" style="max-height:100px;max-width:260px;object-fit:contain"
+           onerror="this.style.display='none';document.getElementById('login-fallback').style.display=''">
+    </div>
+    <!-- Fallback si no hay archivo -->
+    <div id="login-fallback" style="display:none;margin-bottom:8px">
+      <h2 class="fw-bold mb-0">
+        <span style="color:var(--lt-navy)">Lote</span><span style="color:var(--lt-blue)">Track</span>
+      </h2>
+      <div class="login-tagline">Control de Lotes y Ruta de Producción</div>
+    </div>
+    <div style="font-size:12.5px;color:#94a3b8;margin-bottom:20px" id="login-empresa-label">Cargando…</div>
+    <input type="password" class="form-control mb-3" id="inp-pwd" placeholder="Contraseña"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn btn-primary w-100 fw-bold py-2" onclick="doLogin()">Ingresar</button>
+    <div id="login-err" class="text-danger mt-2" style="font-size:13px;display:none">Contraseña incorrecta</div>
+  </div>
+</div>
+
+<!-- ══════ APP ══════ -->
+<div id="app" style="display:none">
+
+<nav class="navbar navbar-dark d-flex justify-content-between align-items-center">
+  <div class="d-flex align-items-center gap-3">
+    <img id="nav-logo" src="/lotetrack-logo.png" style="height:36px;display:none"
+         onerror="this.style.display='none'" alt="LoteTrack">
+    <span class="navbar-brand mb-0">
+      <span class="brand-lote">Lote</span><span class="brand-track">Track</span>
+    </span>
+    <span style="color:#60a5fa;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.8">Control de Lotes y Ruta de Producción</span>
+  </div>
+  <div class="d-flex align-items-center gap-3">
+    <span class="text-white-50" style="font-size:12px" id="nav-empresa">Base de Alimentos Navarro S.A.</span>
+    <button class="btn btn-sm" onclick="cerrarSesion()"
+      style="font-size:11.5px;color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:3px 12px">
+      Salir
+    </button>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 pt-3">
+  <div class="d-flex gap-1 mb-0 flex-wrap">
+    <div class="nav-tab active" onclick="showTab('stock')">📦 Stock</div>
+    <div class="nav-tab" onclick="showTab('importar')">📄 Importar</div>
+    <div class="nav-tab" onclick="showTab('trazabilidad')">🔍 Trazabilidad</div>
+    <div class="nav-tab" onclick="showTab('abm')">🏭 Proveedores / Productos</div>
+    <div class="nav-tab" onclick="showTab('exportar')">📊 Exportar</div>
+    <div class="nav-tab" onclick="showTab('config')">⚙️ Configuración</div>
+  </div>
+
+  <div style="background:#fff; border-radius:0 12px 12px 12px; border:1px solid #dde3f0; padding:26px; box-shadow:0 2px 12px rgba(13,27,75,.06);">
+
+  <!-- ══════ STOCK ══════ -->
+  <div id="tab-stock" class="section active">
+    <div class="row g-3 mb-3">
+      <div class="col-md-4"><div class="card p-3" style="border-left:4px solid #2563eb">
+        <div style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Total Disponible</div>
+        <div class="fw-bold fs-4" style="color:#2563eb" id="kpi-total">—</div>
+        <div style="font-size:11px;color:#94a3b8">litros en stock</div>
+      </div></div>
+      <div class="col-md-4"><div class="card p-3" style="border-left:4px solid #10b981">
+        <div style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Lotes Activos</div>
+        <div class="fw-bold fs-4" style="color:#10b981" id="kpi-lotes">—</div>
+        <div style="font-size:11px;color:#94a3b8">con stock disponible</div>
+      </div></div>
+      <div class="col-md-4"><div class="card p-3" style="border-left:4px solid #f59e0b">
+        <div style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Ventas Registradas</div>
+        <div class="fw-bold fs-4" style="color:#f59e0b" id="kpi-ventas">—</div>
+        <div style="font-size:11px;color:#94a3b8">en el período</div>
+      </div></div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="fw-bold text-uppercase text-muted mb-0" style="font-size:11px">Lotes de compra</h6>
+      <label class="form-check-label text-muted" style="font-size:12px;cursor:pointer">
+        <input class="form-check-input me-1" type="checkbox" id="chk-consumidos" onchange="cargarStock()">
+        Mostrar consumidos
+      </label>
+    </div>
+    <div id="kpi-grupos" class="d-flex gap-2 flex-wrap mb-3"></div>
+    <div class="card mb-4"><div class="card-body p-0">
+      <table class="table tbl mb-0"><thead><tr>
+        <th>ID</th><th>Fecha</th><th>Proveedor</th><th>Producto</th>
+        <th>Total (L)</th><th>Disponible (L)</th><th>Ocupación</th><th></th>
+      </tr></thead><tbody id="tabla-stock"></tbody></table>
+    </div></div>
+
+    <h6 class="fw-bold text-uppercase text-muted mb-2" style="font-size:11px">Ventas registradas</h6>
+    <div class="card"><div class="card-body p-0">
+      <table class="table tbl mb-0"><thead><tr>
+        <th>ID</th><th>Fecha</th><th>Cliente</th><th>Tipo aceite</th><th>Factura</th><th>Litros</th><th></th>
+      </tr></thead><tbody id="tabla-ventas"></tbody></table>
+    </div></div>
+  </div>
+
+  <!-- ══════ IMPORTAR ══════ -->
+  <div id="tab-importar" class="section">
+    <div class="row g-4">
+      <div class="col-md-5">
+        <h6 class="fw-bold text-uppercase text-muted mb-3" style="font-size:11px">Opción A — Subir PDF</h6>
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('filePdf').click()">
+          <div style="font-size:40px">📄</div>
+          <div class="mt-2 fw-semibold" id="dropLabel">Arrastrá o hacé click para subir la factura</div>
+          <div class="text-muted" style="font-size:12px">PDF — Compra o Venta</div>
+          <input type="file" id="filePdf" accept=".pdf" class="d-none">
+        </div>
+        <button class="btn btn-primary w-100 mt-2" onclick="parsearPDF()" id="btnParse">Leer factura</button>
+        <hr>
+        <h6 class="fw-bold text-uppercase text-muted mb-2" style="font-size:11px">Opción B — Carga manual</h6>
+        <button class="btn btn-outline-primary w-100" onclick="mostrarFormManual('compra')">➕ Nueva Compra</button>
+        <button class="btn btn-outline-success w-100 mt-2" onclick="mostrarFormManual('venta')">➕ Nueva Venta</button>
+      </div>
+
+      <div class="col-md-7">
+        <h6 class="fw-bold text-uppercase text-muted mb-3" style="font-size:11px">Confirmar y guardar</h6>
+        <div id="form-parse" style="display:none">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tipo</label>
+            <select class="form-select" id="f-tipo" onchange="toggleTipo()">
+              <option value="compra">Compra (entrada a granel)</option>
+              <option value="venta">Venta (producto envasado)</option>
+            </select>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Fecha</label>
+              <input type="date" class="form-control" id="f-fecha">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Factura Nº</label>
+              <input type="text" class="form-control" id="f-factura">
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Remito Nº</label>
+            <input type="text" class="form-control" id="f-remito" placeholder="opcional">
+          </div>
+
+          <!-- COMPRA -->
+          <div id="campos-compra">
+            <div class="mb-2">
+              <label class="form-label">Proveedor</label>
+              <div class="select-combo">
+                <select class="form-select" id="f-proveedor-sel" onchange="onSelProveedor()">
+                  <option value="">— Seleccionar del ABM —</option>
+                </select>
+                <input type="text" class="form-control" id="f-proveedor" placeholder="O escribir manualmente">
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Producto de compra</label>
+              <div class="select-combo">
+                <select class="form-select" id="f-producto-sel" onchange="onSelProducto()">
+                  <option value="">— Seleccionar del ABM —</option>
+                </select>
+                <input type="text" class="form-control" id="f-producto" placeholder="O escribir manualmente">
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Toneladas</label>
+              <input type="number" step="0.01" class="form-control" id="f-toneladas">
+              <div class="form-text" id="f-litros-calc">— L</div>
+            </div>
+          </div>
+
+          <!-- VENTA -->
+          <div id="campos-venta" style="display:none">
+            <div class="mb-2">
+              <label class="form-label">Tipo de aceite <span class="text-danger">*</span></label>
+              <select class="form-select" id="f-tipo-aceite">
+                <option value="">— Seleccioná el tipo —</option>
+              </select>
+              <div class="form-text text-primary" id="f-stock-tipo"></div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Cliente</label>
+              <input type="text" class="form-control" id="f-cliente">
+            </div>
+            <label class="form-label">Productos vendidos</label>
+            <div id="items-venta"></div>
+            <button class="btn btn-sm btn-outline-secondary mb-2" onclick="agregarItem()">+ Agregar producto</button>
+          </div>
+
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-success flex-grow-1 fw-bold" onclick="guardarOperacion()">💾 Guardar</button>
+            <button class="btn btn-outline-secondary" onclick="cerrarForm()">Cancelar</button>
+          </div>
+        </div>
+        <div id="form-placeholder" class="text-muted text-center mt-5">
+          <div style="font-size:40px">👈</div>
+          <div>Subí una factura o usá la carga manual</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ TRAZABILIDAD ══════ -->
+  <div id="tab-trazabilidad" class="section">
+    <div class="d-flex gap-2 mb-3 align-items-center">
+      <a id="btn-exp-excel" href="#" class="btn btn-success btn-sm disabled" download>📊 Exportar Excel</a>
+      <a id="btn-exp-pdf"   href="#" class="btn btn-danger  btn-sm disabled" download>📄 Exportar PDF</a>
+      <span id="exp-label" class="text-muted" style="font-size:12px">Seleccioná un lote o venta para exportar</span>
+    </div>
+    <div class="row g-4">
+      <div class="col-md-5">
+        <div class="card p-3 mb-3">
+          <h6 class="fw-bold mb-2">Filtrar por proveedor</h6>
+          <select class="form-select mb-3" id="fil-proveedor" onchange="filtrarPorProveedor()">
+            <option value="">— Todos —</option>
+          </select>
+          <h6 class="fw-bold mb-1">🔍 Buscar Lote</h6>
+          <input type="text" class="form-control form-control-sm mb-1" id="busq-lote"
+            placeholder="ID, proveedor, factura, fecha…" oninput="filtrarLotes()">
+          <div id="res-lote" style="max-height:160px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;margin-bottom:12px"></div>
+          <h6 class="fw-bold mb-1">🔍 Buscar Venta</h6>
+          <input type="text" class="form-control form-control-sm mb-1" id="busq-venta"
+            placeholder="ID, cliente, factura, fecha…" oninput="filtrarVentas()">
+          <div id="res-venta" style="max-height:160px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px"></div>
+        </div>
+      </div>
+      <div class="col-md-7">
+        <div id="result-traz" class="text-muted text-center mt-5">
+          <div style="font-size:40px">📋</div>
+          <div>Buscá un lote o venta</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ ABM ══════ -->
+  <div id="tab-abm" class="section">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h6 class="fw-bold mb-0">🏭 ABM de Proveedores</h6>
+      <button class="btn btn-primary btn-sm" onclick="abrirModalPrv()">➕ Nuevo proveedor</button>
+    </div>
+    <div class="card mb-4"><div class="card-body p-0">
+      <table class="table tbl mb-0"><thead><tr>
+        <th>ID</th><th>Nombre</th><th>CUIT</th><th>Contacto</th><th></th>
+      </tr></thead><tbody id="tabla-proveedores"></tbody></table>
+    </div></div>
+    <hr class="my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h6 class="fw-bold mb-0">🧴 ABM de Productos</h6>
+      <button class="btn btn-success btn-sm" onclick="abrirModalPrd()">➕ Nuevo producto</button>
+    </div>
+    <div class="card"><div class="card-body p-0">
+      <table class="table tbl mb-0"><thead><tr>
+        <th>ID</th><th>Nombre</th><th></th>
+      </tr></thead><tbody id="tabla-productos"></tbody></table>
+    </div></div>
+  </div>
+
+  <!-- ══════ EXPORTAR ══════ -->
+  <div id="tab-exportar" class="section">
+    <div class="row g-4">
+      <div class="col-md-5">
+        <div class="card p-4">
+          <h6 class="fw-bold mb-3">Filtros <span class="text-muted fw-normal">(opcionales)</span></h6>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label" style="font-size:12px">Desde</label>
+              <input type="date" class="form-control form-control-sm" id="exp-desde">
+            </div>
+            <div class="col-6">
+              <label class="form-label" style="font-size:12px">Hasta</label>
+              <input type="date" class="form-control form-control-sm" id="exp-hasta">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" style="font-size:12px">Proveedor</label>
+            <select class="form-select form-select-sm" id="exp-proveedor">
+              <option value="">— Todos —</option>
+            </select>
+          </div>
+          <button class="btn btn-outline-secondary btn-sm" onclick="limpiarFiltrosExp()">Limpiar filtros</button>
+        </div>
+      </div>
+      <div class="col-md-7">
+        <div class="row g-3">
+          <div class="col-12"><div class="card p-4 text-center">
+            <div style="font-size:40px">📊</div>
+            <h5 class="mt-2 fw-bold">Excel (.xlsx)</h5>
+            <p class="text-muted mb-3">Lotes + Trazabilidad filtrados</p>
+            <button class="btn btn-success w-100 fw-bold" onclick="descargarExport('excel')">⬇ Descargar Excel</button>
+          </div></div>
+          <div class="col-12"><div class="card p-4 text-center">
+            <div style="font-size:40px">📄</div>
+            <h5 class="mt-2 fw-bold">Reporte PDF</h5>
+            <p class="text-muted mb-3">Stock completo y trazabilidad</p>
+            <button class="btn btn-danger w-100 fw-bold" onclick="descargarExport('pdf')">⬇ Descargar PDF</button>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ CONFIGURACIÓN ══════ -->
+  <div id="tab-config" class="section">
+    <div class="row g-4">
+      <div class="col-md-5">
+        <div class="card p-4 mb-4">
+          <h6 class="fw-bold mb-1">🖼 Logo de la empresa</h6>
+          <div class="text-muted mb-3" style="font-size:12px">Aparece en los PDF exportados (ej: BAN)</div>
+          <div id="logo-preview" class="mb-3 text-center" style="display:none">
+            <img id="logo-img" src="/logo-empresa.png" style="max-height:80px;max-width:220px;object-fit:contain" alt="Logo">
+            <div class="mt-2">
+              <button class="btn btn-sm btn-outline-danger" onclick="eliminarLogo()">🗑 Quitar logo</button>
+            </div>
+          </div>
+          <div id="logo-upload-zone" class="upload-zone" onclick="document.getElementById('filelogo').click()">
+            <div style="font-size:30px">🖼</div>
+            <div class="mt-1 fw-semibold" style="font-size:13px">Subir logo (PNG/JPG)</div>
+            <div class="text-muted" style="font-size:11px">Recomendado: fondo transparente</div>
+            <input type="file" id="filelogo" accept="image/*" class="d-none" onchange="subirLogo(this)">
+          </div>
+        </div>
+        <div class="card p-4">
+          <h6 class="fw-bold mb-3">🏢 Datos de la empresa</h6>
+          <div class="mb-3">
+            <label class="form-label">Nombre de la empresa</label>
+            <input type="text" class="form-control" id="cfg-empresa">
+          </div>
+          <button class="btn btn-primary w-100" onclick="guardarEmpresa()">Guardar nombre</button>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-4">
+          <h6 class="fw-bold mb-3">🔒 Cambiar contraseña</h6>
+          <div class="mb-2">
+            <label class="form-label">Contraseña actual</label>
+            <input type="password" class="form-control" id="cfg-pwd-actual">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Nueva contraseña</label>
+            <input type="password" class="form-control" id="cfg-pwd-nueva">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Confirmar nueva</label>
+            <input type="password" class="form-control" id="cfg-pwd-confirm">
+          </div>
+          <button class="btn btn-warning w-100 fw-bold" onclick="cambiarPassword()">Cambiar contraseña</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+</div>
+</div><!-- /app -->
+
+<!-- Modales -->
+<div class="modal fade" id="modalPrv" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title" id="modalPrvTitulo">Proveedor</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="prv-id">
+      <div class="mb-2"><label class="form-label">Nombre *</label><input type="text" class="form-control" id="prv-nombre"></div>
+      <div class="mb-2"><label class="form-label">CUIT</label><input type="text" class="form-control" id="prv-cuit" placeholder="30-12345678-9"></div>
+      <div class="mb-2"><label class="form-label">Contacto</label><input type="text" class="form-control" id="prv-contacto"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarProveedor()">Guardar</button>
+    </div>
+  </div></div>
+</div>
+
+<div class="modal fade" id="modalPrd" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title" id="modalPrdTitulo">Producto</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="prd-id">
+      <div class="mb-2"><label class="form-label">Nombre *</label><input type="text" class="form-control" id="prd-nombre" placeholder="Ej: Aceite Refinado de Soja"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+      <button class="btn btn-success" onclick="guardarProducto()">Guardar</button>
+    </div>
+  </div></div>
+</div>
+
+<div id="toast" class="toast align-items-center text-white border-0" style="display:none">
+  <div class="d-flex"><div class="toast-body" id="toast-msg"></div>
+  <button class="btn-close btn-close-white me-2 m-auto" onclick="hideToast()"></button></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── Login ─────────────────────────────────────────────────────────────────────
+let editandoTipo = null, editandoId = null;
+let _lotes = [], _ventas = [];
+
+async function initLogin() {
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    document.getElementById('login-empresa-label').textContent = cfg.empresa;
+    if (cfg.tienelogo) {
+      document.getElementById('login-logo-wrap').style.display = '';
+      document.getElementById('login-icon').style.display = 'none';
+    }
+    // Si ya hay sesión guardada, entrar directo
+    if (sessionStorage.getItem('lotemania-ok') === '1') entrarApp(cfg.empresa, cfg.tienelogo);
+  } catch(e) { document.getElementById('login-empresa-label').textContent = ''; }
+}
+
+async function doLogin() {
+  const pwd = document.getElementById('inp-pwd').value;
+  const r = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd }) });
+  const d = await r.json();
+  if (d.ok) {
+    sessionStorage.setItem('lotemania-ok', '1');
+    entrarApp(d.empresa, false);
+    cargarConfigApp();
+  } else {
+    document.getElementById('login-err').style.display = '';
+    document.getElementById('inp-pwd').value = '';
+    document.getElementById('inp-pwd').focus();
+  }
+}
+
+function entrarApp(empresa, tienelogo) {
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('app').style.display = '';
+  if (empresa) document.getElementById('nav-empresa').textContent = empresa;
+  cargarStock();
+  cargarSelectsImportar();
+}
+
+function cerrarSesion() {
+  sessionStorage.removeItem('lotemania-ok');
+  location.reload();
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  const idx = ['stock','importar','trazabilidad','abm','exportar','config'].indexOf(name);
+  document.querySelectorAll('.nav-tab')[idx].classList.add('active');
+  if (name === 'stock')        cargarStock();
+  if (name === 'trazabilidad') cargarSelectores();
+  if (name === 'abm')          { cargarProveedores(); cargarProductos(); }
+  if (name === 'importar')     cargarSelectsImportar();
+  if (name === 'exportar')     cargarFiltrosExp();
+  if (name === 'config')       cargarConfigTab();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, tipo = 'success') {
+  const el = document.getElementById('toast');
+  el.style.display = 'block';
+  el.className = `toast align-items-center text-white border-0 bg-${tipo}`;
+  document.getElementById('toast-msg').textContent = msg;
+  setTimeout(hideToast, 3500);
+}
+function hideToast() { document.getElementById('toast').style.display = 'none'; }
+
+// ── Stock ─────────────────────────────────────────────────────────────────────
+async function cargarStock() {
+  const mostrarConsumidos = document.getElementById('chk-consumidos')?.checked;
+  const [r, ventas] = await Promise.all([
+    fetch('/api/stock').then(r => r.json()),
+    fetch('/api/ventas').then(r => r.json())
+  ]);
+  document.getElementById('kpi-total').textContent  = r.total_disponible.toLocaleString('es-AR') + ' L';
+  document.getElementById('kpi-lotes').textContent  = r.lotes.filter(l => l.litros_disponibles > 0).length;
+  document.getElementById('kpi-ventas').textContent = ventas.length;
+
+  document.getElementById('kpi-grupos').innerHTML = Object.entries(r.grupos || {}).map(([prod, litros]) => `
+    <div class="card px-3 py-2" style="min-width:180px">
+      <div class="text-muted" style="font-size:11px">${prod.toUpperCase()}</div>
+      <div class="fw-bold fs-5 text-primary">${litros.toLocaleString('es-AR')} L</div>
+    </div>`).join('');
+
+  const lotesFil = mostrarConsumidos ? r.lotes : r.lotes.filter(l => l.litros_disponibles > 0);
+  document.getElementById('tabla-stock').innerHTML = lotesFil.map(l => {
+    const consumido = l.litros_disponibles === 0;
+    const pct = l.litros_total > 0 ? ((l.litros_disponibles / l.litros_total) * 100).toFixed(1) : 0;
+    const color = pct > 50 ? 'success' : pct > 20 ? 'warning' : 'danger';
+    return `<tr style="${consumido ? 'opacity:0.5' : ''}">
+      <td><span class="badge-lote">${l.id}</span>${consumido ? ' <span class="badge bg-secondary" style="font-size:10px">Consumido</span>' : ''}</td>
+      <td>${l.fecha}</td><td>${l.proveedor}</td><td>${l.producto}</td>
+      <td>${l.litros_total.toLocaleString('es-AR')}</td>
+      <td class="fw-bold">${l.litros_disponibles.toLocaleString('es-AR')}</td>
+      <td style="min-width:110px">
+        <div class="progress"><div class="progress-bar bg-${consumido ? 'secondary' : color}" style="width:${pct}%"></div></div>
+        <small class="text-muted">${pct}%</small>
+      </td>
+      <td>
+        <button class="btn btn-sm btn-outline-secondary me-1" onclick="editarLote('${l.id}')">✏️</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="eliminarLote('${l.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" class="text-center text-muted py-4">Sin lotes activos</td></tr>';
+
+  document.getElementById('tabla-ventas').innerHTML = ventas.map(v => `<tr>
+    <td><span class="badge-venta">${v.id}</span></td>
+    <td>${v.fecha}</td><td>${v.cliente}</td>
+    <td><span class="badge bg-light text-dark border" style="font-size:11px">${v.tipo_aceite||'—'}</span></td>
+    <td>${v.factura}</td>
+    <td class="fw-bold">${v.litros_total.toLocaleString('es-AR')} L</td>
+    <td>
+      <button class="btn btn-sm btn-outline-secondary me-1" onclick="editarVenta('${v.id}')">✏️</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="eliminarVenta('${v.id}')">🗑</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="7" class="text-center text-muted py-4">Sin ventas registradas</td></tr>';
+}
+
+// ── Upload PDF ────────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag');
+  document.getElementById('filePdf').files = e.dataTransfer.files;
+  document.getElementById('dropLabel').textContent = e.dataTransfer.files[0].name;
+});
+document.getElementById('filePdf').addEventListener('change', e => {
+  if (e.target.files[0]) document.getElementById('dropLabel').textContent = e.target.files[0].name;
+});
+
+async function parsearPDF() {
+  const file = document.getElementById('filePdf').files[0];
+  if (!file) { toast('Primero seleccioná un PDF', 'warning'); return; }
+  const fd = new FormData();
+  fd.append('factura', file);
+  const btn = document.getElementById('btnParse');
+  btn.disabled = true; btn.textContent = 'Leyendo...';
+  try {
+    const r = await fetch('/api/parse-pdf', { method: 'POST', body: fd }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error);
+    rellenarForm(r.parsed);
+    toast('PDF leído. Verificá los datos antes de guardar.', 'primary');
+  } catch(e) {
+    toast('Error al leer: ' + e.message, 'danger');
+  } finally { btn.disabled = false; btn.textContent = 'Leer factura'; }
+}
+
+// ── Selects importar ──────────────────────────────────────────────────────────
+async function cargarSelectsImportar() {
+  const [proveedores, productos, stock] = await Promise.all([
+    fetch('/api/proveedores').then(r => r.json()),
+    fetch('/api/productos').then(r => r.json()),
+    fetch('/api/stock').then(r => r.json())
+  ]);
+  const selPrv = document.getElementById('f-proveedor-sel');
+  selPrv.innerHTML = '<option value="">— Seleccionar del ABM —</option>' +
+    proveedores.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+
+  const selPrd = document.getElementById('f-producto-sel');
+  selPrd.innerHTML = '<option value="">— Seleccionar del ABM —</option>' +
+    productos.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+
+  const tiposDisp = {};
+  stock.lotes.filter(l => l.litros_disponibles > 0).forEach(l => {
+    if (!tiposDisp[l.producto]) tiposDisp[l.producto] = 0;
+    tiposDisp[l.producto] += l.litros_disponibles;
+  });
+  document.getElementById('f-tipo-aceite').innerHTML =
+    '<option value="">— Seleccioná el tipo —</option>' +
+    Object.entries(tiposDisp).map(([prod, lit]) =>
+      `<option value="${prod}">${prod} (${lit.toLocaleString('es-AR')} L disp.)</option>`
+    ).join('');
+}
+
+function onSelProveedor() {
+  const val = document.getElementById('f-proveedor-sel').value;
+  if (val) document.getElementById('f-proveedor').value = val;
+}
+function onSelProducto() {
+  const val = document.getElementById('f-producto-sel').value;
+  if (val) document.getElementById('f-producto').value = val;
+}
+
+function rellenarForm(p) {
+  mostrarForm();
+  document.getElementById('f-tipo').value    = p.tipo === 'venta' ? 'venta' : 'compra';
+  document.getElementById('f-fecha').value   = p.fecha   || '';
+  document.getElementById('f-factura').value = p.factura || '';
+  document.getElementById('f-remito').value  = p.remito  || '';
+  if (p.tipo === 'venta') {
+    document.getElementById('f-cliente').value = p.cliente || '';
+    const cont = document.getElementById('items-venta');
+    cont.innerHTML = '';
+    (p.items?.length ? p.items : [{}]).forEach(i => cont.appendChild(crearFilaItem(i.producto, i.cantidad)));
+  } else {
+    const prvNombre = p.proveedor || '';
+    document.getElementById('f-proveedor').value = prvNombre;
+    const selPrv = document.getElementById('f-proveedor-sel');
+    const optPrv = [...selPrv.options].find(o => o.value.toLowerCase() === prvNombre.toLowerCase());
+    selPrv.value = optPrv ? optPrv.value : '';
+
+    const prdNombre = p.producto || '';
+    document.getElementById('f-producto').value = prdNombre;
+    const selPrd = document.getElementById('f-producto-sel');
+    const optPrd = [...selPrd.options].find(o => o.value.toLowerCase() === prdNombre.toLowerCase());
+    selPrd.value = optPrd ? optPrd.value : '';
+
+    document.getElementById('f-toneladas').value = p.toneladas || '';
+    actualizarLitros();
+  }
+  toggleTipo();
+}
+
+function mostrarFormManual(tipo) {
+  mostrarForm();
+  document.getElementById('f-tipo').value = tipo;
+  document.getElementById('f-fecha').value = '';
+  document.getElementById('f-factura').value = '';
+  document.getElementById('f-remito').value = '';
+  document.getElementById('f-proveedor-sel').value = '';
+  document.getElementById('f-proveedor').value = '';
+  document.getElementById('f-producto-sel').value = '';
+  document.getElementById('f-producto').value = '';
+  document.getElementById('f-toneladas').value = '';
+  document.getElementById('f-tipo-aceite').value = '';
+  document.getElementById('f-cliente').value = '';
+  document.getElementById('items-venta').innerHTML = '';
+  document.getElementById('items-venta').appendChild(crearFilaItem());
+  actualizarLitros();
+  toggleTipo();
+}
+
+function mostrarForm() {
+  document.getElementById('form-parse').style.display = 'block';
+  document.getElementById('form-placeholder').style.display = 'none';
+  editandoTipo = null; editandoId = null;
+}
+function cerrarForm() {
+  document.getElementById('form-parse').style.display = 'none';
+  document.getElementById('form-placeholder').style.display = '';
+  document.getElementById('filePdf').value = '';
+  document.getElementById('dropLabel').textContent = 'Arrastrá o hacé click para subir la factura';
+}
+function toggleTipo() {
+  const tipo = document.getElementById('f-tipo').value;
+  document.getElementById('campos-compra').style.display = tipo === 'compra' ? '' : 'none';
+  document.getElementById('campos-venta').style.display  = tipo === 'venta'  ? '' : 'none';
+}
+
+document.getElementById('f-toneladas').addEventListener('input', actualizarLitros);
+function actualizarLitros() {
+  const tn = parseFloat(document.getElementById('f-toneladas').value) || 0;
+  document.getElementById('f-litros-calc').textContent = `= ${(tn * 1080).toFixed(2)} litros`;
+}
+
+function crearFilaItem(prod = '900ml', cant = '') {
+  const div = document.createElement('div');
+  div.className = 'row g-2 mb-2 item-row';
+  div.innerHTML = `
+    <div class="col-5"><select class="form-select form-select-sm">
+      <option value="900ml" ${prod==='900ml'?'selected':''}>900 ml</option>
+      <option value="5L"    ${prod==='5L'?'selected':''}>5 L</option>
+      <option value="10L"   ${prod==='10L'?'selected':''}>10 L</option>
+    </select></div>
+    <div class="col-5"><input type="number" class="form-control form-control-sm" placeholder="Cantidad (u)" value="${cant||''}" min="1"></div>
+    <div class="col-2"><button class="btn btn-sm btn-outline-danger" onclick="this.closest('.item-row').remove()">✕</button></div>`;
+  return div;
+}
+function agregarItem() { document.getElementById('items-venta').appendChild(crearFilaItem()); }
+
+async function guardarOperacion() {
+  const tipo    = document.getElementById('f-tipo').value;
+  const fecha   = document.getElementById('f-fecha').value;
+  const factura = document.getElementById('f-factura').value;
+  const remito  = document.getElementById('f-remito').value;
+  try {
+    let res;
+    if (tipo === 'compra') {
+      const body = { fecha, factura, remito,
+        proveedor: document.getElementById('f-proveedor').value.trim(),
+        producto:  document.getElementById('f-producto').value.trim(),
+        toneladas: parseFloat(document.getElementById('f-toneladas').value) };
+      const url = editandoId ? `/api/lotes/${editandoId}` : '/api/lotes';
+      res = await fetch(url, { method: editandoId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+    } else {
+      const tipo_aceite = document.getElementById('f-tipo-aceite').value;
+      if (!tipo_aceite) { toast('Seleccioná el tipo de aceite', 'warning'); return; }
+      const items = [...document.querySelectorAll('#items-venta .item-row')].map(row => ({
+        producto: row.querySelector('select').value,
+        cantidad: parseInt(row.querySelector('input').value)
+      })).filter(i => i.cantidad > 0);
+      const body = { fecha, factura, remito, cliente: document.getElementById('f-cliente').value, tipo_aceite, items };
+      const url = editandoId ? `/api/ventas/${editandoId}` : '/api/ventas';
+      res = await fetch(url, { method: editandoId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
+    }
+    if (!res.ok) throw new Error(res.error);
+    toast(`✓ ${editandoId ? 'Actualizado' : 'Guardado'} correctamente`, 'success');
+    cerrarForm();
+    cargarStock();
+  } catch(e) { toast('Error: ' + e.message, 'danger'); }
+}
+
+async function editarLote(id) {
+  const lotes = await fetch('/api/lotes').then(r => r.json());
+  const l = lotes.find(x => x.id === id);
+  showTab('importar');
+  mostrarForm();
+  editandoTipo = 'lote'; editandoId = id;
+  document.getElementById('f-tipo').value = 'compra';
+  document.getElementById('f-fecha').value = l.fecha;
+  document.getElementById('f-factura').value = l.factura;
+  document.getElementById('f-remito').value = l.remito || '';
+  document.getElementById('f-proveedor').value = l.proveedor;
+  document.getElementById('f-producto').value  = l.producto;
+  document.getElementById('f-toneladas').value = l.toneladas;
+  const selPrv = document.getElementById('f-proveedor-sel');
+  selPrv.value = [...selPrv.options].find(o => o.value.toLowerCase() === l.proveedor.toLowerCase())?.value || '';
+  const selPrd = document.getElementById('f-producto-sel');
+  selPrd.value = [...selPrd.options].find(o => o.value.toLowerCase() === l.producto.toLowerCase())?.value || '';
+  actualizarLitros(); toggleTipo();
+  toast(`Editando ${id}`, 'primary');
+}
+
+async function editarVenta(id) {
+  const ventas = await fetch('/api/ventas').then(r => r.json());
+  const v = ventas.find(x => x.id === id);
+  showTab('importar');
+  mostrarForm();
+  editandoTipo = 'venta'; editandoId = id;
+  document.getElementById('f-tipo').value         = 'venta';
+  document.getElementById('f-fecha').value        = v.fecha;
+  document.getElementById('f-factura').value      = v.factura;
+  document.getElementById('f-remito').value       = v.remito || '';
+  document.getElementById('f-tipo-aceite').value  = v.tipo_aceite || '';
+  document.getElementById('f-cliente').value      = v.cliente;
+  const cont = document.getElementById('items-venta');
+  cont.innerHTML = '';
+  v.items.forEach(i => cont.appendChild(crearFilaItem(i.producto, i.cantidad)));
+  toggleTipo();
+  toast(`Editando ${id}`, 'primary');
+}
+
+async function eliminarLote(id) {
+  if (!confirm(`¿Eliminar ${id}?`)) return;
+  const r = await fetch(`/api/lotes/${id}`, { method: 'DELETE' }).then(r => r.json());
+  r.ok ? (toast(`✓ ${id} eliminado`, 'success'), cargarStock()) : toast('Error: ' + r.error, 'danger');
+}
+async function eliminarVenta(id) {
+  if (!confirm(`¿Eliminar ${id}? Se restaurará el stock.`)) return;
+  const r = await fetch(`/api/ventas/${id}`, { method: 'DELETE' }).then(r => r.json());
+  r.ok ? (toast(`✓ ${id} eliminada`, 'success'), cargarStock()) : toast('Error: ' + r.error, 'danger');
+}
+
+// ── Trazabilidad ──────────────────────────────────────────────────────────────
+async function cargarSelectores() {
+  const [lotes, ventas, proveedores] = await Promise.all([
+    fetch('/api/lotes').then(r => r.json()),
+    fetch('/api/ventas').then(r => r.json()),
+    fetch('/api/proveedores').then(r => r.json())
+  ]);
+  _lotes = lotes; _ventas = ventas;
+  document.getElementById('fil-proveedor').innerHTML =
+    '<option value="">— Todos —</option>' +
+    proveedores.map(p => `<option>${p.nombre}</option>`).join('');
+  document.getElementById('busq-lote').value  = '';
+  document.getElementById('busq-venta').value = '';
+  renderResLotes(_lotes);
+  renderResVentas(_ventas);
+}
+
+function filtrarPorProveedor() {
+  const prv = document.getElementById('fil-proveedor').value.toLowerCase();
+  const lotesF  = prv ? _lotes.filter(l => l.proveedor.toLowerCase().includes(prv)) : _lotes;
+  const ventasF = prv ? _ventas.filter(v => v.consumo_lotes.some(c => c.proveedor.toLowerCase().includes(prv))) : _ventas;
+  renderResLotes(lotesF); renderResVentas(ventasF);
+}
+
+function filtrarLotes() {
+  const q   = document.getElementById('busq-lote').value.toLowerCase().trim();
+  const prv = document.getElementById('fil-proveedor').value.toLowerCase();
+  let res = prv ? _lotes.filter(l => l.proveedor.toLowerCase().includes(prv)) : _lotes;
+  if (q) res = res.filter(l =>
+    l.id.toLowerCase().includes(q) || l.proveedor.toLowerCase().includes(q) ||
+    (l.factura||'').toLowerCase().includes(q) || (l.remito||'').toLowerCase().includes(q) ||
+    l.fecha.includes(q) || l.producto.toLowerCase().includes(q)
+  );
+  renderResLotes(res);
+}
+function filtrarVentas() {
+  const q   = document.getElementById('busq-venta').value.toLowerCase().trim();
+  const prv = document.getElementById('fil-proveedor').value.toLowerCase();
+  let res = prv ? _ventas.filter(v => v.consumo_lotes.some(c => c.proveedor.toLowerCase().includes(prv))) : _ventas;
+  if (q) res = res.filter(v =>
+    v.id.toLowerCase().includes(q) || v.cliente.toLowerCase().includes(q) ||
+    (v.factura||'').toLowerCase().includes(q) || (v.remito||'').toLowerCase().includes(q) ||
+    v.fecha.includes(q) || (v.tipo_aceite||'').toLowerCase().includes(q)
+  );
+  renderResVentas(res);
+}
+
+function renderResLotes(lista) {
+  const el = document.getElementById('res-lote');
+  if (!lista.length) { el.innerHTML = '<div class="text-muted p-2" style="font-size:12px">Sin resultados</div>'; return; }
+  el.innerHTML = lista.map(l => `
+    <div style="cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px;padding:5px 8px"
+         class="d-flex justify-content-between align-items-center"
+         onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''"
+         onclick="buscarLote('${l.id}')">
+      <div><span class="badge-lote me-1">${l.id}</span><strong>${l.proveedor}</strong><span class="text-muted ms-1" style="font-size:11px">${l.producto}</span></div>
+      <div class="text-muted">${l.fecha}</div>
+    </div>`).join('');
+}
+function renderResVentas(lista) {
+  const el = document.getElementById('res-venta');
+  if (!lista.length) { el.innerHTML = '<div class="text-muted p-2" style="font-size:12px">Sin resultados</div>'; return; }
+  el.innerHTML = lista.map(v => `
+    <div style="cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px;padding:5px 8px"
+         class="d-flex justify-content-between align-items-center"
+         onmouseover="this.style.background='#f0fff4'" onmouseout="this.style.background=''"
+         onclick="buscarVenta('${v.id}')">
+      <div><span class="badge-venta me-1">${v.id}</span><strong>${v.cliente}</strong></div>
+      <div class="text-muted">${v.fecha}</div>
+    </div>`).join('');
+}
+
+function activarExport(tipo, id) {
+  document.getElementById('btn-exp-excel').href = `/api/export/excel/${tipo}/${id}`;
+  document.getElementById('btn-exp-pdf').href   = `/api/export/pdf/${tipo}/${id}`;
+  document.getElementById('btn-exp-excel').classList.remove('disabled');
+  document.getElementById('btn-exp-pdf').classList.remove('disabled');
+  document.getElementById('exp-label').textContent = `Exportando: ${id}`;
+}
+
+async function buscarLote(id) {
+  if (!id) return;
+  activarExport('lote', id);
+  const r = await fetch(`/api/trazabilidad/lote/${id}`).then(r => r.json());
+  const l = r.lote;
+  const pct  = ((l.litros_disponibles / l.litros_total) * 100).toFixed(1);
+  const usado = (l.litros_total - l.litros_disponibles).toFixed(2);
+  document.getElementById('result-traz').innerHTML = `
+    <div class="result-box">
+      <h5 class="fw-bold mb-1">${l.id} — ${l.proveedor}</h5>
+      <div class="text-muted mb-3" style="font-size:12px">Factura: ${l.factura} | Remito: ${l.remito||'-'} | ${l.fecha}</div>
+      <div class="row g-3 mb-3">
+        <div class="col-4 text-center"><div class="fw-bold fs-5">${l.litros_total.toLocaleString('es-AR')}</div><div class="text-muted" style="font-size:11px">L TOTAL</div></div>
+        <div class="col-4 text-center"><div class="fw-bold fs-5 text-danger">${parseFloat(usado).toLocaleString('es-AR')}</div><div class="text-muted" style="font-size:11px">L USADO</div></div>
+        <div class="col-4 text-center"><div class="fw-bold fs-5 text-success">${l.litros_disponibles.toLocaleString('es-AR')}</div><div class="text-muted" style="font-size:11px">L DISPONIBLE</div></div>
+      </div>
+      <div class="progress mb-3"><div class="progress-bar bg-success" style="width:${pct}%"></div></div>
+      <h6 class="fw-bold">Ventas que consumieron este lote:</h6>
+      ${r.ventas.length === 0 ? '<div class="text-muted">Sin ventas todavía.</div>' :
+        r.ventas.map(v => {
+          const c = v.consumo_lotes.find(x => x.lote_id === id);
+          return `<div class="d-flex justify-content-between align-items-center border-bottom py-2">
+            <div><span class="badge-venta">${v.id}</span> <strong>${v.cliente}</strong> <span class="text-muted">${v.fecha}</span></div>
+            <div class="fw-bold">${c.litros_usados.toLocaleString('es-AR')} L</div>
+          </div>`;
+        }).join('')}
+    </div>`;
+}
+
+async function buscarVenta(id) {
+  if (!id) return;
+  activarExport('venta', id);
+  const v = await fetch(`/api/trazabilidad/venta/${id}`).then(r => r.json());
+  document.getElementById('result-traz').innerHTML = `
+    <div class="result-box">
+      <h5 class="fw-bold mb-1">${v.id} — ${v.cliente}</h5>
+      <div class="text-muted mb-3" style="font-size:12px">Factura: ${v.factura} | Remito: ${v.remito||'-'} | ${v.fecha}</div>
+      ${v.tipo_aceite ? `<div class="mb-2"><span class="badge bg-primary">${v.tipo_aceite}</span></div>` : ''}
+      <h6 class="fw-bold">Productos:</h6>
+      ${v.items.map(i => `<div class="d-flex justify-content-between border-bottom py-1">
+        <div>${i.cantidad.toLocaleString('es-AR')} u × <strong>${i.producto}</strong></div>
+        <div class="text-muted">${i.litros_total.toLocaleString('es-AR')} L</div>
+      </div>`).join('')}
+      <div class="d-flex justify-content-between fw-bold py-2 mb-3">
+        <div>TOTAL</div><div>${v.litros_total.toLocaleString('es-AR')} L</div>
+      </div>
+      <h6 class="fw-bold">Origen (FIFO):</h6>
+      ${v.consumo_lotes.map(c => `<div class="d-flex justify-content-between align-items-center border-bottom py-2">
+        <div><span class="badge-lote">${c.lote_id}</span> <strong>${c.proveedor}</strong> <span class="text-muted">FC: ${c.factura_compra}</span></div>
+        <div class="fw-bold">${c.litros_usados.toLocaleString('es-AR')} L</div>
+      </div>`).join('')}
+    </div>`;
+}
+
+// ── ABM Proveedores ───────────────────────────────────────────────────────────
+async function cargarProveedores() {
+  const ps = await fetch('/api/proveedores').then(r => r.json());
+  document.getElementById('tabla-proveedores').innerHTML = ps.map(p => `<tr>
+    <td><span class="badge-prv">${p.id}</span></td>
+    <td><strong>${p.nombre}</strong></td><td>${p.cuit||'-'}</td><td>${p.contacto||'-'}</td>
+    <td>
+      <button class="btn btn-sm btn-outline-secondary me-1" onclick="abrirModalPrv('${p.id}','${escapar(p.nombre)}','${p.cuit||''}','${p.contacto||''}')">✏️</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="eliminarProveedor('${p.id}')">🗑</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted py-4">Sin proveedores</td></tr>';
+}
+function escapar(s) { return (s||'').replace(/'/g,"\\'"); }
+function abrirModalPrv(id='',nombre='',cuit='',contacto='') {
+  document.getElementById('prv-id').value=id; document.getElementById('prv-nombre').value=nombre;
+  document.getElementById('prv-cuit').value=cuit; document.getElementById('prv-contacto').value=contacto;
+  document.getElementById('modalPrvTitulo').textContent = id ? `Editar ${id}` : 'Nuevo proveedor';
+  new bootstrap.Modal(document.getElementById('modalPrv')).show();
+}
+async function guardarProveedor() {
+  const id=document.getElementById('prv-id').value, nombre=document.getElementById('prv-nombre').value.trim();
+  const cuit=document.getElementById('prv-cuit').value.trim(), contacto=document.getElementById('prv-contacto').value.trim();
+  if (!nombre) { toast('El nombre es obligatorio', 'warning'); return; }
+  const r = await fetch(id?`/api/proveedores/${id}`:'/api/proveedores',
+    { method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({nombre,cuit,contacto}) }).then(r=>r.json());
+  if (r.ok) { bootstrap.Modal.getInstance(document.getElementById('modalPrv')).hide(); toast('✓ Guardado','success'); cargarProveedores(); cargarSelectsImportar(); }
+  else toast('Error: '+r.error,'danger');
+}
+async function eliminarProveedor(id) {
+  if (!confirm(`¿Eliminar ${id}?`)) return;
+  const r = await fetch(`/api/proveedores/${id}`,{method:'DELETE'}).then(r=>r.json());
+  r.ok?(toast('✓ Eliminado','success'),cargarProveedores(),cargarSelectsImportar()):toast('Error: '+r.error,'danger');
+}
+
+// ── ABM Productos ─────────────────────────────────────────────────────────────
+async function cargarProductos() {
+  const ps = await fetch('/api/productos').then(r => r.json());
+  document.getElementById('tabla-productos').innerHTML = ps.map(p => `<tr>
+    <td><span class="badge-prd">${p.id}</span></td><td><strong>${p.nombre}</strong></td>
+    <td>
+      <button class="btn btn-sm btn-outline-secondary me-1" onclick="abrirModalPrd('${p.id}','${escapar(p.nombre)}')">✏️</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="eliminarProducto('${p.id}')">🗑</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted py-4">Sin productos</td></tr>';
+}
+function abrirModalPrd(id='',nombre='') {
+  document.getElementById('prd-id').value=id; document.getElementById('prd-nombre').value=nombre;
+  document.getElementById('modalPrdTitulo').textContent = id ? `Editar ${id}` : 'Nuevo producto';
+  new bootstrap.Modal(document.getElementById('modalPrd')).show();
+}
+async function guardarProducto() {
+  const id=document.getElementById('prd-id').value, nombre=document.getElementById('prd-nombre').value.trim();
+  if (!nombre) { toast('El nombre es obligatorio','warning'); return; }
+  const r = await fetch(id?`/api/productos/${id}`:'/api/productos',
+    { method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({nombre}) }).then(r=>r.json());
+  if (r.ok) { bootstrap.Modal.getInstance(document.getElementById('modalPrd')).hide(); toast('✓ Guardado','success'); cargarProductos(); cargarSelectsImportar(); }
+  else toast('Error: '+r.error,'danger');
+}
+async function eliminarProducto(id) {
+  if (!confirm(`¿Eliminar ${id}?`)) return;
+  const r = await fetch(`/api/productos/${id}`,{method:'DELETE'}).then(r=>r.json());
+  r.ok?(toast('✓ Eliminado','success'),cargarProductos(),cargarSelectsImportar()):toast('Error: '+r.error,'danger');
+}
+
+// ── Exportar con filtros ──────────────────────────────────────────────────────
+async function cargarFiltrosExp() {
+  const proveedores = await fetch('/api/proveedores').then(r => r.json());
+  document.getElementById('exp-proveedor').innerHTML =
+    '<option value="">— Todos —</option>' +
+    proveedores.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
+}
+function limpiarFiltrosExp() {
+  document.getElementById('exp-desde').value = '';
+  document.getElementById('exp-hasta').value = '';
+  document.getElementById('exp-proveedor').value = '';
+}
+function descargarExport(formato) {
+  const desde    = document.getElementById('exp-desde').value;
+  const hasta    = document.getElementById('exp-hasta').value;
+  const proveedor = document.getElementById('exp-proveedor').value;
+  const params = new URLSearchParams();
+  if (desde)     params.set('desde', desde);
+  if (hasta)     params.set('hasta', hasta);
+  if (proveedor) params.set('proveedor', proveedor);
+  const qs = params.toString() ? '?' + params.toString() : '';
+  window.location = `/api/export/${formato}${qs}`;
+}
+
+// ── Configuración ─────────────────────────────────────────────────────────────
+async function cargarConfigTab() {
+  const cfg = await fetch('/api/config').then(r => r.json());
+  document.getElementById('cfg-empresa').value = cfg.empresa || '';
+  const logoPreview = document.getElementById('logo-preview');
+  const logoUpload  = document.getElementById('logo-upload-zone');
+  if (cfg.tienelogo) {
+    document.getElementById('logo-img').src = '/logo-empresa.png?' + Date.now();
+    logoPreview.style.display = '';
+    logoUpload.style.display  = 'none';
+  } else {
+    logoPreview.style.display = 'none';
+    logoUpload.style.display  = '';
+  }
+}
+
+async function subirLogo(input) {
+  if (!input.files[0]) return;
+  const fd = new FormData();
+  fd.append('logo', input.files[0]);
+  const r = await fetch('/api/config/logo', { method:'POST', body: fd }).then(r=>r.json());
+  if (r.ok) { toast('✓ Logo subido','success'); cargarConfigTab(); actualizarNavLogo(); }
+  else toast('Error: '+r.error,'danger');
+}
+async function eliminarLogo() {
+  if (!confirm('¿Quitar el logo?')) return;
+  await fetch('/api/config/logo',{method:'DELETE'});
+  toast('Logo eliminado','success');
+  cargarConfigTab();
+  document.getElementById('nav-logo').style.display='none';
+}
+async function guardarEmpresa() {
+  const empresa = document.getElementById('cfg-empresa').value.trim();
+  if (!empresa) { toast('Ingresá un nombre','warning'); return; }
+  const r = await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({empresa})}).then(r=>r.json());
+  if (r.ok) { toast('✓ Nombre actualizado','success'); document.getElementById('nav-empresa').textContent=empresa; }
+  else toast('Error: '+r.error,'danger');
+}
+async function cambiarPassword() {
+  const actual   = document.getElementById('cfg-pwd-actual').value;
+  const nueva    = document.getElementById('cfg-pwd-nueva').value;
+  const confirm2 = document.getElementById('cfg-pwd-confirm').value;
+  if (nueva !== confirm2) { toast('Las contraseñas no coinciden','warning'); return; }
+  if (!nueva) { toast('La nueva contraseña no puede ser vacía','warning'); return; }
+  // Validar actual
+  const chk = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:actual})});
+  if (!chk.ok) { toast('Contraseña actual incorrecta','danger'); return; }
+  const r = await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({passwordNueva:nueva})}).then(r=>r.json());
+  if (r.ok) {
+    toast('✓ Contraseña cambiada','success');
+    document.getElementById('cfg-pwd-actual').value='';
+    document.getElementById('cfg-pwd-nueva').value='';
+    document.getElementById('cfg-pwd-confirm').value='';
+  } else toast('Error: '+r.error,'danger');
+}
+async function cargarConfigApp() {
+  const cfg = await fetch('/api/config').then(r=>r.json());
+  if (cfg.empresa) document.getElementById('nav-empresa').textContent = cfg.empresa;
+  // Navbar siempre intenta mostrar el logo de la APP (lotetrack-logo.png)
+  const navLogo = document.getElementById('nav-logo');
+  navLogo.src = '/lotetrack-logo.png?' + Date.now();
+  navLogo.style.display = '';
+  navLogo.onerror = () => { navLogo.style.display = 'none'; };
+}
+async function actualizarNavLogo() {
+  // Solo refresca el logo de empresa en la tab de configuración
+  const cfg = await fetch('/api/config').then(r=>r.json());
+  const logoPreview = document.getElementById('logo-preview');
+  const logoUpload  = document.getElementById('logo-upload-zone');
+  if (logoPreview && cfg.tienelogo) {
+    document.getElementById('logo-img').src = '/logo-empresa.png?' + Date.now();
+    logoPreview.style.display = ''; logoUpload.style.display = 'none';
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+initLogin();
+</script>
+</body>
+</html>
