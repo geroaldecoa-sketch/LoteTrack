@@ -6,6 +6,7 @@
 <title>LoteTrack</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" rel="stylesheet">
 <style>
   :root {
     --lt-navy:  #0d1b4b;
@@ -54,6 +55,16 @@
   .btn-primary { background:var(--lt-blue); border-color:var(--lt-blue); }
   .btn-primary:hover { background:var(--lt-blue2); border-color:var(--lt-blue2); }
   .text-primary { color:var(--lt-blue) !important; }
+
+  /* Nav tabs con iconos */
+  .nav-tab i { font-size:15px; vertical-align:-2px; margin-right:5px; }
+
+  /* Config sub-tabs */
+  .cfg-subtabs { display:flex; gap:4px; border-bottom:1px solid #dde3f0; padding-bottom:0; margin-bottom:20px; }
+  .cfg-st { display:flex; align-items:center; gap:6px; padding:8px 14px; border:none; background:transparent; border-radius:8px 8px 0 0; font-size:13px; font-weight:500; color:#4b5a7a; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .cfg-st:hover { background:#f0f4fb; }
+  .cfg-st.active { color:var(--lt-blue); border-bottom:2px solid var(--lt-blue); background:#fff; }
+  .cfg-st i { font-size:15px; }
 
   /* Login */
   #login-overlay {
@@ -116,34 +127,29 @@
 
 <div class="container-fluid px-4 pt-3">
   <div class="d-flex gap-1 mb-0 flex-wrap">
-    <div class="nav-tab active" onclick="showTab('stock')">📦 Stock</div>
-    <div class="nav-tab" onclick="showTab('importar')">📄 Importar</div>
-    <div class="nav-tab" onclick="showTab('trazabilidad')">🔍 Trazabilidad</div>
-    <div class="nav-tab" onclick="showTab('abm')">🏭 Proveedores / Productos</div>
-    <div class="nav-tab" onclick="showTab('exportar')">📊 Exportar</div>
-    <div class="nav-tab" onclick="showTab('config')">⚙️ Configuración</div>
+    <div class="nav-tab active" onclick="showTab('stock')"><i class="ti ti-package"></i> Stock</div>
+    <div class="nav-tab" onclick="showTab('importar')"><i class="ti ti-file-upload"></i> Importar</div>
+    <div class="nav-tab" onclick="showTab('trazabilidad')"><i class="ti ti-route"></i> Trazabilidad</div>
+    <div class="nav-tab" onclick="showTab('exportar')"><i class="ti ti-file-export"></i> Exportar</div>
+    <div class="nav-tab" onclick="showTab('config')"><i class="ti ti-settings"></i> Configuración</div>
   </div>
 
   <div style="background:#fff; border-radius:0 12px 12px 12px; border:1px solid #dde3f0; padding:26px; box-shadow:0 2px 12px rgba(13,27,75,.06);">
 
   <!-- ══════ STOCK ══════ -->
   <div id="tab-stock" class="section active">
-    <div class="row g-3 mb-3">
-      <div class="col-md-4"><div class="card p-3" style="border-left:4px solid #2563eb">
+    <div class="d-flex flex-wrap gap-3 mb-3" id="kpi-row">
+      <div class="card p-3" style="border-left:4px solid #0d1b4b;flex:1 1 180px;min-width:160px">
         <div style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Total Disponible</div>
-        <div class="fw-bold fs-4" style="color:#2563eb" id="kpi-total">—</div>
+        <div class="fw-bold fs-4" style="color:#0d1b4b" id="kpi-total">—</div>
         <div style="font-size:11px;color:#94a3b8">litros en stock</div>
-      </div></div>
-      <div class="col-md-4"><div class="card p-3" style="border-left:4px solid #10b981">
+      </div>
+      <div class="card p-3" style="border-left:4px solid #0891b2;flex:1 1 180px;min-width:160px">
         <div style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Lotes Activos</div>
-        <div class="fw-bold fs-4" style="color:#10b981" id="kpi-lotes">—</div>
+        <div class="fw-bold fs-4" style="color:#0891b2" id="kpi-lotes">—</div>
         <div style="font-size:11px;color:#94a3b8">con stock disponible</div>
-      </div></div>
-      <div class="col-md-4"><div class="card p-3" style="border-left:4px solid #f59e0b">
-        <div style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.06em;text-transform:uppercase">Ventas Registradas</div>
-        <div class="fw-bold fs-4" style="color:#f59e0b" id="kpi-ventas">—</div>
-        <div style="font-size:11px;color:#94a3b8">en el período</div>
-      </div></div>
+      </div>
+      <div id="kpi-productos-wrap" style="display:contents"></div>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -161,7 +167,10 @@
       </tr></thead><tbody id="tabla-stock"></tbody></table>
     </div></div>
 
-    <h6 class="fw-bold text-uppercase text-muted mb-2" style="font-size:11px">Ventas registradas</h6>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="fw-bold text-uppercase text-muted mb-0" style="font-size:11px">Últimas ventas</h6>
+      <button class="btn btn-sm btn-link p-0" style="font-size:12px" onclick="showTab('trazabilidad')">Ver todas <i class="ti ti-arrow-right" style="font-size:13px;vertical-align:-2px"></i></button>
+    </div>
     <div class="card"><div class="card-body p-0">
       <table class="table tbl mb-0"><thead><tr>
         <th>ID</th><th>Fecha</th><th>Cliente</th><th>Tipo aceite</th><th>Factura</th><th>Litros</th><th></th>
@@ -252,7 +261,11 @@
               <label class="form-label">Cliente</label>
               <input type="text" class="form-control" id="f-cliente">
             </div>
-            <label class="form-label">Productos vendidos</label>
+            <div class="row g-2 mb-1" style="font-size:11px;color:#64748b;font-weight:600">
+              <div class="col-4">PRODUCTO</div>
+              <div class="col-3">CANTIDAD</div>
+              <div class="col-4">LOTE BOTELLA <span style="font-weight:400">(fecha llenado)</span> <span style="color:#dc2626">*</span></div>
+            </div>
             <div id="items-venta"></div>
             <button class="btn btn-sm btn-outline-secondary mb-2" onclick="agregarItem()">+ Agregar producto</button>
           </div>
@@ -272,6 +285,8 @@
 
   <!-- ══════ TRAZABILIDAD ══════ -->
   <div id="tab-trazabilidad" class="section">
+
+    <!-- Búsqueda normal -->
     <div class="d-flex gap-2 mb-3 align-items-center">
       <a id="btn-exp-excel" href="#" class="btn btn-success btn-sm disabled" download>📊 Exportar Excel</a>
       <a id="btn-exp-pdf"   href="#" class="btn btn-danger  btn-sm disabled" download>📄 Exportar PDF</a>
@@ -280,15 +295,28 @@
     <div class="row g-4">
       <div class="col-md-5">
         <div class="card p-3 mb-3">
-          <h6 class="fw-bold mb-2">Filtrar por proveedor</h6>
-          <select class="form-select mb-3" id="fil-proveedor" onchange="filtrarPorProveedor()">
-            <option value="">— Todos —</option>
+          <h6 class="fw-bold mb-2">Filtros</h6>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label" style="font-size:11px;color:#64748b">Desde</label>
+              <input type="date" class="form-control form-control-sm" id="fil-desde" onchange="aplicarFiltrosTraz()">
+            </div>
+            <div class="col-6">
+              <label class="form-label" style="font-size:11px;color:#64748b">Hasta</label>
+              <input type="date" class="form-control form-control-sm" id="fil-hasta" onchange="aplicarFiltrosTraz()">
+            </div>
+          </div>
+          <select class="form-select mb-2" id="fil-proveedor" onchange="aplicarFiltrosTraz()">
+            <option value="">— Todos los proveedores —</option>
           </select>
-          <h6 class="fw-bold mb-1">🔍 Buscar Lote</h6>
+          <label class="form-label" style="font-size:11px;color:#64748b;margin-bottom:2px">Lote Botella (fecha de llenado)</label>
+          <input type="date" class="form-control form-control-sm mb-2" id="fil-envasado" onchange="aplicarFiltrosTraz()">
+          <button class="btn btn-sm btn-outline-secondary w-100 mb-3" onclick="limpiarFiltrosTraz()">Limpiar filtros</button>
+          <h6 class="fw-bold mb-1"><i class="ti ti-search"></i> Buscar Lote</h6>
           <input type="text" class="form-control form-control-sm mb-1" id="busq-lote"
             placeholder="ID, proveedor, factura, fecha…" oninput="filtrarLotes()">
           <div id="res-lote" style="max-height:160px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;margin-bottom:12px"></div>
-          <h6 class="fw-bold mb-1">🔍 Buscar Venta</h6>
+          <h6 class="fw-bold mb-1"><i class="ti ti-search"></i> Buscar Venta</h6>
           <input type="text" class="form-control form-control-sm mb-1" id="busq-venta"
             placeholder="ID, cliente, factura, fecha…" oninput="filtrarVentas()">
           <div id="res-venta" style="max-height:160px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px"></div>
@@ -301,70 +329,109 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ══════ ABM ══════ -->
-  <div id="tab-abm" class="section">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h6 class="fw-bold mb-0">🏭 ABM de Proveedores</h6>
-      <button class="btn btn-primary btn-sm" onclick="abrirModalPrv()">➕ Nuevo proveedor</button>
+    <!-- RASTREO DE LOTE BOTELLA -->
+    <div class="card mt-4" style="border:2px solid #f59e0b">
+      <div class="card-body p-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <i class="ti ti-search" style="font-size:20px;color:#d97706"></i>
+          <h6 class="fw-bold mb-0" style="color:#d97706">Rastreo de Lote Botella</h6>
+          <span class="text-muted" style="font-size:12px">— todos los clientes que recibieron un lote específico</span>
+        </div>
+        <div class="d-flex gap-2 align-items-end">
+          <div>
+            <label class="form-label mb-1" style="font-size:11px;color:#64748b">FECHA DE LLENADO (lote impreso en botella)</label>
+            <input type="date" class="form-control" id="alerta-fecha" style="width:200px">
+          </div>
+          <button class="btn fw-bold px-4" style="background:#f59e0b;border-color:#f59e0b;color:#fff" onclick="rastrearLoteBotella()">
+            <i class="ti ti-search"></i> Rastrear
+          </button>
+          <a id="btn-rastreo-excel" href="#" class="btn btn-success disabled" download>
+            <i class="ti ti-table-export"></i> Excel
+          </a>
+          <a id="btn-rastreo-pdf" href="#" class="btn btn-danger disabled" download>
+            <i class="ti ti-file-type-pdf"></i> PDF
+          </a>
+          <button class="btn btn-outline-secondary" onclick="limpiarAlerta()">Limpiar</button>
+        </div>
+        <div id="alerta-result" class="mt-3" style="display:none"></div>
+      </div>
     </div>
-    <div class="card mb-4"><div class="card-body p-0">
-      <table class="table tbl mb-0"><thead><tr>
-        <th>ID</th><th>Nombre</th><th>CUIT</th><th>Contacto</th><th></th>
-      </tr></thead><tbody id="tabla-proveedores"></tbody></table>
-    </div></div>
-    <hr class="my-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h6 class="fw-bold mb-0">🧴 ABM de Productos</h6>
-      <button class="btn btn-success btn-sm" onclick="abrirModalPrd()">➕ Nuevo producto</button>
-    </div>
-    <div class="card"><div class="card-body p-0">
-      <table class="table tbl mb-0"><thead><tr>
-        <th>ID</th><th>Nombre</th><th></th>
-      </tr></thead><tbody id="tabla-productos"></tbody></table>
-    </div></div>
   </div>
 
   <!-- ══════ EXPORTAR ══════ -->
   <div id="tab-exportar" class="section">
-    <div class="row g-4">
-      <div class="col-md-5">
-        <div class="card p-4">
-          <h6 class="fw-bold mb-3">Filtros <span class="text-muted fw-normal">(opcionales)</span></h6>
-          <div class="row g-2 mb-2">
-            <div class="col-6">
-              <label class="form-label" style="font-size:12px">Desde</label>
-              <input type="date" class="form-control form-control-sm" id="exp-desde">
-            </div>
-            <div class="col-6">
-              <label class="form-label" style="font-size:12px">Hasta</label>
-              <input type="date" class="form-control form-control-sm" id="exp-hasta">
-            </div>
+    <!-- Filtros compactos en una sola fila -->
+    <div class="card p-3 mb-4">
+      <div class="d-flex align-items-end gap-3 flex-wrap">
+        <div>
+          <label class="form-label mb-1" style="font-size:11px;color:#64748b">DESDE</label>
+          <input type="date" class="form-control form-control-sm" id="exp-desde" style="width:150px">
+        </div>
+        <div>
+          <label class="form-label mb-1" style="font-size:11px;color:#64748b">HASTA</label>
+          <input type="date" class="form-control form-control-sm" id="exp-hasta" style="width:150px">
+        </div>
+        <div style="flex:1;min-width:160px">
+          <label class="form-label mb-1" style="font-size:11px;color:#64748b">PROVEEDOR</label>
+          <select class="form-select form-select-sm" id="exp-proveedor">
+            <option value="">— Todos —</option>
+          </select>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" onclick="limpiarFiltrosExp()">
+          <i class="ti ti-x"></i> Limpiar
+        </button>
+      </div>
+    </div>
+
+    <!-- 4 botones en grilla 2×2 -->
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="card p-3 d-flex flex-row align-items-center gap-3">
+          <i class="ti ti-table-export" style="font-size:28px;color:#16a34a;flex-shrink:0"></i>
+          <div class="flex-grow-1">
+            <div class="fw-bold" style="font-size:14px">Excel completo</div>
+            <div class="text-muted" style="font-size:11px">Lotes + Trazabilidad filtrados</div>
           </div>
-          <div class="mb-3">
-            <label class="form-label" style="font-size:12px">Proveedor</label>
-            <select class="form-select form-select-sm" id="exp-proveedor">
-              <option value="">— Todos —</option>
-            </select>
-          </div>
-          <button class="btn btn-outline-secondary btn-sm" onclick="limpiarFiltrosExp()">Limpiar filtros</button>
+          <button class="btn btn-success btn-sm fw-bold" onclick="descargarExport('excel')">
+            <i class="ti ti-download"></i> Descargar
+          </button>
         </div>
       </div>
-      <div class="col-md-7">
-        <div class="row g-3">
-          <div class="col-12"><div class="card p-4 text-center">
-            <div style="font-size:40px">📊</div>
-            <h5 class="mt-2 fw-bold">Excel (.xlsx)</h5>
-            <p class="text-muted mb-3">Lotes + Trazabilidad filtrados</p>
-            <button class="btn btn-success w-100 fw-bold" onclick="descargarExport('excel')">⬇ Descargar Excel</button>
-          </div></div>
-          <div class="col-12"><div class="card p-4 text-center">
-            <div style="font-size:40px">📄</div>
-            <h5 class="mt-2 fw-bold">Reporte PDF</h5>
-            <p class="text-muted mb-3">Stock completo y trazabilidad</p>
-            <button class="btn btn-danger w-100 fw-bold" onclick="descargarExport('pdf')">⬇ Descargar PDF</button>
-          </div></div>
+      <div class="col-md-6">
+        <div class="card p-3 d-flex flex-row align-items-center gap-3">
+          <i class="ti ti-file-type-pdf" style="font-size:28px;color:#dc2626;flex-shrink:0"></i>
+          <div class="flex-grow-1">
+            <div class="fw-bold" style="font-size:14px">Reporte PDF</div>
+            <div class="text-muted" style="font-size:11px">Stock completo y trazabilidad</div>
+          </div>
+          <button class="btn btn-danger btn-sm fw-bold" onclick="descargarExport('pdf')">
+            <i class="ti ti-download"></i> Descargar
+          </button>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card p-3 d-flex flex-row align-items-center gap-3">
+          <i class="ti ti-receipt" style="font-size:28px;color:#2563eb;flex-shrink:0"></i>
+          <div class="flex-grow-1">
+            <div class="fw-bold" style="font-size:14px">Facturas de Compra</div>
+            <div class="text-muted" style="font-size:11px">Compras del período para conciliar</div>
+          </div>
+          <button class="btn btn-primary btn-sm fw-bold" onclick="descargarExport('excel-compras')">
+            <i class="ti ti-download"></i> Descargar
+          </button>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card p-3 d-flex flex-row align-items-center gap-3">
+          <i class="ti ti-receipt-2" style="font-size:28px;color:#7c3aed;flex-shrink:0"></i>
+          <div class="flex-grow-1">
+            <div class="fw-bold" style="font-size:14px">Facturas de Venta</div>
+            <div class="text-muted" style="font-size:11px">Ventas del período para conciliar</div>
+          </div>
+          <button class="btn btn-sm fw-bold" style="background:#7c3aed;border-color:#7c3aed;color:#fff" onclick="descargarExport('excel-ventas')">
+            <i class="ti ti-download"></i> Descargar
+          </button>
         </div>
       </div>
     </div>
@@ -372,49 +439,106 @@
 
   <!-- ══════ CONFIGURACIÓN ══════ -->
   <div id="tab-config" class="section">
-    <div class="row g-4">
-      <div class="col-md-5">
-        <div class="card p-4 mb-4">
-          <h6 class="fw-bold mb-1">🖼 Logo de la empresa</h6>
-          <div class="text-muted mb-3" style="font-size:12px">Aparece en los PDF exportados (ej: BAN)</div>
-          <div id="logo-preview" class="mb-3 text-center" style="display:none">
-            <img id="logo-img" src="/logo-empresa.png" style="max-height:80px;max-width:220px;object-fit:contain" alt="Logo">
-            <div class="mt-2">
-              <button class="btn btn-sm btn-outline-danger" onclick="eliminarLogo()">🗑 Quitar logo</button>
+    <div class="cfg-subtabs">
+      <button class="cfg-st active" onclick="showCfgTab('empresa')"><i class="ti ti-building"></i> Empresa</button>
+      <button class="cfg-st" onclick="showCfgTab('proveedores')"><i class="ti ti-users"></i> Proveedores</button>
+      <button class="cfg-st" onclick="showCfgTab('productos')"><i class="ti ti-droplet"></i> Prod. Compra</button>
+      <button class="cfg-st" onclick="showCfgTab('prod-venta')"><i class="ti ti-shopping-cart"></i> Prod. Venta</button>
+      <button class="cfg-st" onclick="showCfgTab('seguridad')"><i class="ti ti-lock"></i> Seguridad</button>
+    </div>
+
+    <!-- Empresa -->
+    <div id="cfg-empresa-tab" class="cfg-section">
+      <div class="row g-4">
+        <div class="col-md-5">
+          <div class="card p-4 mb-4">
+            <h6 class="fw-bold mb-1"><i class="ti ti-photo"></i> Logo de la empresa</h6>
+            <div class="text-muted mb-3" style="font-size:12px">Aparece en los PDF exportados</div>
+            <div id="logo-preview" class="mb-3 text-center" style="display:none">
+              <img id="logo-img" src="/logo-empresa.png" style="max-height:80px;max-width:220px;object-fit:contain" alt="Logo">
+              <div class="mt-2">
+                <button class="btn btn-sm btn-outline-danger" onclick="eliminarLogo()"><i class="ti ti-trash"></i> Quitar logo</button>
+              </div>
+            </div>
+            <div id="logo-upload-zone" class="upload-zone" onclick="document.getElementById('filelogo').click()">
+              <i class="ti ti-photo" style="font-size:30px;color:#94a3b8"></i>
+              <div class="mt-1 fw-semibold" style="font-size:13px">Subir logo (PNG/JPG)</div>
+              <div class="text-muted" style="font-size:11px">Recomendado: fondo transparente</div>
+              <input type="file" id="filelogo" accept="image/*" class="d-none" onchange="subirLogo(this)">
             </div>
           </div>
-          <div id="logo-upload-zone" class="upload-zone" onclick="document.getElementById('filelogo').click()">
-            <div style="font-size:30px">🖼</div>
-            <div class="mt-1 fw-semibold" style="font-size:13px">Subir logo (PNG/JPG)</div>
-            <div class="text-muted" style="font-size:11px">Recomendado: fondo transparente</div>
-            <input type="file" id="filelogo" accept="image/*" class="d-none" onchange="subirLogo(this)">
+          <div class="card p-4">
+            <h6 class="fw-bold mb-3"><i class="ti ti-building"></i> Nombre de la empresa</h6>
+            <div class="mb-3">
+              <label class="form-label">Nombre</label>
+              <input type="text" class="form-control" id="cfg-empresa">
+            </div>
+            <button class="btn btn-primary w-100" onclick="guardarEmpresa()">Guardar</button>
           </div>
-        </div>
-        <div class="card p-4">
-          <h6 class="fw-bold mb-3">🏢 Datos de la empresa</h6>
-          <div class="mb-3">
-            <label class="form-label">Nombre de la empresa</label>
-            <input type="text" class="form-control" id="cfg-empresa">
-          </div>
-          <button class="btn btn-primary w-100" onclick="guardarEmpresa()">Guardar nombre</button>
         </div>
       </div>
-      <div class="col-md-4">
-        <div class="card p-4">
-          <h6 class="fw-bold mb-3">🔒 Cambiar contraseña</h6>
-          <div class="mb-2">
-            <label class="form-label">Contraseña actual</label>
-            <input type="password" class="form-control" id="cfg-pwd-actual">
+    </div>
+
+    <!-- Proveedores -->
+    <div id="cfg-proveedores-tab" class="cfg-section" style="display:none">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0"><i class="ti ti-users"></i> Proveedores</h6>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalPrv()"><i class="ti ti-plus"></i> Nuevo proveedor</button>
+      </div>
+      <div class="card"><div class="card-body p-0">
+        <table class="table tbl mb-0"><thead><tr>
+          <th>ID</th><th>Nombre</th><th>CUIT</th><th>Contacto</th><th></th>
+        </tr></thead><tbody id="tabla-proveedores"></tbody></table>
+      </div></div>
+    </div>
+
+    <!-- Productos -->
+    <div id="cfg-productos-tab" class="cfg-section" style="display:none">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0"><i class="ti ti-droplet"></i> Productos</h6>
+        <button class="btn btn-success btn-sm" onclick="abrirModalPrd()"><i class="ti ti-plus"></i> Nuevo producto</button>
+      </div>
+      <div class="card"><div class="card-body p-0">
+        <table class="table tbl mb-0"><thead><tr>
+          <th>ID</th><th>Nombre</th><th></th>
+        </tr></thead><tbody id="tabla-productos"></tbody></table>
+      </div></div>
+    </div>
+
+    <!-- Productos de Venta -->
+    <div id="cfg-prod-venta-tab" class="cfg-section" style="display:none">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0"><i class="ti ti-shopping-cart"></i> Productos de Venta</h6>
+        <button class="btn btn-success btn-sm" onclick="abrirModalPV()"><i class="ti ti-plus"></i> Nuevo producto</button>
+      </div>
+      <div class="text-muted mb-3" style="font-size:12px">Presentaciones que vendés (bidones, botellas, etc.) y cuántos litros descuenta cada unidad.</div>
+      <div class="card"><div class="card-body p-0">
+        <table class="table tbl mb-0"><thead><tr>
+          <th>ID</th><th>Nombre</th><th>Litros/unidad</th><th></th>
+        </tr></thead><tbody id="tabla-prod-venta"></tbody></table>
+      </div></div>
+    </div>
+
+    <!-- Seguridad -->
+    <div id="cfg-seguridad-tab" class="cfg-section" style="display:none">
+      <div class="row">
+        <div class="col-md-4">
+          <div class="card p-4">
+            <h6 class="fw-bold mb-3"><i class="ti ti-lock"></i> Cambiar contraseña</h6>
+            <div class="mb-2">
+              <label class="form-label">Contraseña actual</label>
+              <input type="password" class="form-control" id="cfg-pwd-actual">
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Nueva contraseña</label>
+              <input type="password" class="form-control" id="cfg-pwd-nueva">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Confirmar nueva</label>
+              <input type="password" class="form-control" id="cfg-pwd-confirm">
+            </div>
+            <button class="btn btn-warning w-100 fw-bold" onclick="cambiarPassword()">Cambiar contraseña</button>
           </div>
-          <div class="mb-2">
-            <label class="form-label">Nueva contraseña</label>
-            <input type="password" class="form-control" id="cfg-pwd-nueva">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Confirmar nueva</label>
-            <input type="password" class="form-control" id="cfg-pwd-confirm">
-          </div>
-          <button class="btn btn-warning w-100 fw-bold" onclick="cambiarPassword()">Cambiar contraseña</button>
         </div>
       </div>
     </div>
@@ -461,6 +585,31 @@
   </div></div>
 </div>
 
+<div class="modal fade" id="modalPV" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title" id="modalPVTitulo">Producto de Venta</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pv-id">
+      <div class="mb-3">
+        <label class="form-label">Nombre / Presentación *</label>
+        <input type="text" class="form-control" id="pv-nombre" placeholder="Ej: Bidón 5L, Botella 900ml">
+      </div>
+      <div class="mb-2">
+        <label class="form-label">Litros por unidad *</label>
+        <input type="number" class="form-control" id="pv-litros" placeholder="Ej: 5" step="0.001" min="0.001">
+        <div class="form-text text-muted">Cuántos litros descuenta del stock cada unidad vendida (ej: bidón 5L = 5)</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+      <button class="btn btn-success" onclick="guardarPV()">Guardar</button>
+    </div>
+  </div></div>
+</div>
+
 <div id="toast" class="toast align-items-center text-white border-0" style="display:none">
   <div class="d-flex"><div class="toast-body" id="toast-msg"></div>
   <button class="btn-close btn-close-white me-2 m-auto" onclick="hideToast()"></button></div>
@@ -471,6 +620,18 @@
 // ── Login ─────────────────────────────────────────────────────────────────────
 let editandoTipo = null, editandoId = null;
 let _lotes = [], _ventas = [];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtFecha(f) {
+  if (!f) return '';
+  const [y, m, d] = f.split('-');
+  return `${d}-${m}-${y}`;
+}
+function fmtLoteBotella(f) {
+  if (!f) return null;
+  const [y, m, d] = f.split('-');
+  return `L. ${d}/${m}/${y.slice(2)}`;
+}
 
 async function initLogin() {
   try {
@@ -518,14 +679,24 @@ function showTab(name) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  const idx = ['stock','importar','trazabilidad','abm','exportar','config'].indexOf(name);
+  const idx = ['stock','importar','trazabilidad','exportar','config'].indexOf(name);
   document.querySelectorAll('.nav-tab')[idx].classList.add('active');
   if (name === 'stock')        cargarStock();
   if (name === 'trazabilidad') cargarSelectores();
-  if (name === 'abm')          { cargarProveedores(); cargarProductos(); }
   if (name === 'importar')     cargarSelectsImportar();
   if (name === 'exportar')     cargarFiltrosExp();
   if (name === 'config')       cargarConfigTab();
+}
+
+function showCfgTab(name) {
+  document.querySelectorAll('.cfg-section').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('.cfg-st').forEach(t => t.classList.remove('active'));
+  document.getElementById('cfg-' + name + '-tab').style.display = '';
+  const idx = ['empresa','proveedores','productos','prod-venta','seguridad'].indexOf(name);
+  document.querySelectorAll('.cfg-st')[idx].classList.add('active');
+  if (name === 'proveedores')  cargarProveedores();
+  if (name === 'productos')    cargarProductos();
+  if (name === 'prod-venta')   cargarProdVenta();
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -547,13 +718,17 @@ async function cargarStock() {
   ]);
   document.getElementById('kpi-total').textContent  = r.total_disponible.toLocaleString('es-AR') + ' L';
   document.getElementById('kpi-lotes').textContent  = r.lotes.filter(l => l.litros_disponibles > 0).length;
-  document.getElementById('kpi-ventas').textContent = ventas.length;
 
-  document.getElementById('kpi-grupos').innerHTML = Object.entries(r.grupos || {}).map(([prod, litros]) => `
-    <div class="card px-3 py-2" style="min-width:180px">
-      <div class="text-muted" style="font-size:11px">${prod.toUpperCase()}</div>
-      <div class="fw-bold fs-5 text-primary">${litros.toLocaleString('es-AR')} L</div>
-    </div>`).join('');
+  const colores = ['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444'];
+  const grupos  = Object.entries(r.grupos || {});
+  document.getElementById('kpi-productos-wrap').innerHTML = grupos.map(([prod, litros], i) => `
+    <div class="card p-3" style="border-left:4px solid ${colores[i % colores.length]};flex:1 1 180px;min-width:160px">
+      <div style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:.06em;text-transform:uppercase">${prod}</div>
+      <div class="fw-bold fs-4" style="color:${colores[i % colores.length]}">${litros.toLocaleString('es-AR')} L</div>
+      <div style="font-size:11px;color:#94a3b8">disponibles</div>
+    </div>`).join('') || '';
+
+  document.getElementById('kpi-grupos').innerHTML = '';
 
   const lotesFil = mostrarConsumidos ? r.lotes : r.lotes.filter(l => l.litros_disponibles > 0);
   document.getElementById('tabla-stock').innerHTML = lotesFil.map(l => {
@@ -562,7 +737,7 @@ async function cargarStock() {
     const color = pct > 50 ? 'success' : pct > 20 ? 'warning' : 'danger';
     return `<tr style="${consumido ? 'opacity:0.5' : ''}">
       <td><span class="badge-lote">${l.id}</span>${consumido ? ' <span class="badge bg-secondary" style="font-size:10px">Consumido</span>' : ''}</td>
-      <td>${l.fecha}</td><td>${l.proveedor}</td><td>${l.producto}</td>
+      <td>${fmtFecha(l.fecha)}</td><td>${l.proveedor}</td><td>${l.producto}</td>
       <td>${l.litros_total.toLocaleString('es-AR')}</td>
       <td class="fw-bold">${l.litros_disponibles.toLocaleString('es-AR')}</td>
       <td style="min-width:110px">
@@ -576,9 +751,10 @@ async function cargarStock() {
     </tr>`;
   }).join('') || '<tr><td colspan="8" class="text-center text-muted py-4">Sin lotes activos</td></tr>';
 
-  document.getElementById('tabla-ventas').innerHTML = ventas.map(v => `<tr>
+  const ventasRecientes = [...ventas].reverse().slice(0, 20);
+  document.getElementById('tabla-ventas').innerHTML = ventasRecientes.map(v => `<tr>
     <td><span class="badge-venta">${v.id}</span></td>
-    <td>${v.fecha}</td><td>${v.cliente}</td>
+    <td>${fmtFecha(v.fecha)}</td><td>${v.cliente}</td>
     <td><span class="badge bg-light text-dark border" style="font-size:11px">${v.tipo_aceite||'—'}</span></td>
     <td>${v.factura}</td>
     <td class="fw-bold">${v.litros_total.toLocaleString('es-AR')} L</td>
@@ -620,12 +796,16 @@ async function parsearPDF() {
 }
 
 // ── Selects importar ──────────────────────────────────────────────────────────
+let _prodVenta = []; // cache global para crearFilaItem
+
 async function cargarSelectsImportar() {
-  const [proveedores, productos, stock] = await Promise.all([
+  const [proveedores, productos, prodVenta, stock] = await Promise.all([
     fetch('/api/proveedores').then(r => r.json()),
     fetch('/api/productos').then(r => r.json()),
+    fetch('/api/productos-venta').then(r => r.json()),
     fetch('/api/stock').then(r => r.json())
   ]);
+  _prodVenta = prodVenta;
   const selPrv = document.getElementById('f-proveedor-sel');
   selPrv.innerHTML = '<option value="">— Seleccionar del ABM —</option>' +
     proveedores.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join('');
@@ -727,17 +907,19 @@ function actualizarLitros() {
   document.getElementById('f-litros-calc').textContent = `= ${(tn * 1080).toFixed(2)} litros`;
 }
 
-function crearFilaItem(prod = '900ml', cant = '') {
+function crearFilaItem(prod = '', cant = '', fechaEnv = '') {
   const div = document.createElement('div');
   div.className = 'row g-2 mb-2 item-row';
+  const opts = _prodVenta.length
+    ? _prodVenta.map(p => `<option value="${p.nombre}" ${p.nombre===prod?'selected':''}>${p.nombre} (${p.litros_por_unidad} L/u)</option>`).join('')
+    : `<option value="">— Sin productos de venta cargados —</option>`;
   div.innerHTML = `
-    <div class="col-5"><select class="form-select form-select-sm">
-      <option value="900ml" ${prod==='900ml'?'selected':''}>900 ml</option>
-      <option value="5L"    ${prod==='5L'?'selected':''}>5 L</option>
-      <option value="10L"   ${prod==='10L'?'selected':''}>10 L</option>
-    </select></div>
-    <div class="col-5"><input type="number" class="form-control form-control-sm" placeholder="Cantidad (u)" value="${cant||''}" min="1"></div>
-    <div class="col-2"><button class="btn btn-sm btn-outline-danger" onclick="this.closest('.item-row').remove()">✕</button></div>`;
+    <div class="col-4"><select class="form-select form-select-sm" title="Producto">${opts}</select></div>
+    <div class="col-3"><input type="number" class="form-control form-control-sm" placeholder="Cantidad (u)" value="${cant||''}" min="1"></div>
+    <div class="col-4">
+      <input type="date" class="form-control form-control-sm item-fecha-env" value="${fechaEnv||''}" title="Fecha de envasado (lote impreso en botella)">
+    </div>
+    <div class="col-1"><button class="btn btn-sm btn-outline-danger" onclick="this.closest('.item-row').remove()">✕</button></div>`;
   return div;
 }
 function agregarItem() { document.getElementById('items-venta').appendChild(crearFilaItem()); }
@@ -760,9 +942,14 @@ async function guardarOperacion() {
       const tipo_aceite = document.getElementById('f-tipo-aceite').value;
       if (!tipo_aceite) { toast('Seleccioná el tipo de aceite', 'warning'); return; }
       const items = [...document.querySelectorAll('#items-venta .item-row')].map(row => ({
-        producto: row.querySelector('select').value,
-        cantidad: parseInt(row.querySelector('input').value)
+        producto:       row.querySelector('select').value,
+        cantidad:       parseInt(row.querySelector('input[type=number]').value),
+        fecha_envasado: row.querySelector('.item-fecha-env').value || null
       })).filter(i => i.cantidad > 0);
+      if (items.some(i => !i.fecha_envasado)) {
+        toast('El Lote Botella (fecha de llenado) es obligatorio en todos los productos', 'warning');
+        return;
+      }
       const body = { fecha, factura, remito, cliente: document.getElementById('f-cliente').value, tipo_aceite, items };
       const url = editandoId ? `/api/ventas/${editandoId}` : '/api/ventas';
       res = await fetch(url, { method: editandoId ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }).then(r => r.json());
@@ -809,7 +996,7 @@ async function editarVenta(id) {
   document.getElementById('f-cliente').value      = v.cliente;
   const cont = document.getElementById('items-venta');
   cont.innerHTML = '';
-  v.items.forEach(i => cont.appendChild(crearFilaItem(i.producto, i.cantidad)));
+  v.items.forEach(i => cont.appendChild(crearFilaItem(i.producto, i.cantidad, i.fecha_envasado||'')));
   toggleTipo();
   toast(`Editando ${id}`, 'primary');
 }
@@ -842,34 +1029,127 @@ async function cargarSelectores() {
   renderResVentas(_ventas);
 }
 
-function filtrarPorProveedor() {
-  const prv = document.getElementById('fil-proveedor').value.toLowerCase();
-  const lotesF  = prv ? _lotes.filter(l => l.proveedor.toLowerCase().includes(prv)) : _lotes;
-  const ventasF = prv ? _ventas.filter(v => v.consumo_lotes.some(c => c.proveedor.toLowerCase().includes(prv))) : _ventas;
+function aplicarFiltrosTraz() {
+  const prv      = document.getElementById('fil-proveedor').value.toLowerCase();
+  const desde    = document.getElementById('fil-desde').value;
+  const hasta    = document.getElementById('fil-hasta').value;
+  const envasado = document.getElementById('fil-envasado').value;
+  let lotesF  = _lotes;
+  let ventasF = _ventas;
+  if (prv)      { lotesF = lotesF.filter(l => l.proveedor.toLowerCase().includes(prv)); ventasF = ventasF.filter(v => v.consumo_lotes.some(c => c.proveedor.toLowerCase().includes(prv))); }
+  if (desde)    { lotesF = lotesF.filter(l => l.fecha >= desde); ventasF = ventasF.filter(v => v.fecha >= desde); }
+  if (hasta)    { lotesF = lotesF.filter(l => l.fecha <= hasta); ventasF = ventasF.filter(v => v.fecha <= hasta); }
+  if (envasado) { ventasF = ventasF.filter(v => v.items?.some(i => i.fecha_envasado === envasado)); lotesF = []; }
   renderResLotes(lotesF); renderResVentas(ventasF);
 }
+// ── Rastreo de Lote Botella ───────────────────────────────────────────────────
+function rastrearLoteBotella() {
+  const fecha = document.getElementById('alerta-fecha').value;
+  if (!fecha) { alert('Seleccioná una fecha de llenado'); return; }
+  const loteLabel = fmtLoteBotella(fecha);
+  const el = document.getElementById('alerta-result');
 
+  // Todas las ventas que tienen items con esa fecha_envasado
+  const afectadas = _ventas.filter(v => v.items?.some(i => i.fecha_envasado === fecha));
+
+  // Habilitar botones de export siempre que haya fecha
+  document.getElementById('btn-rastreo-excel').href = `/api/export/rastreo-lote/excel?fecha=${fecha}`;
+  document.getElementById('btn-rastreo-pdf').href   = `/api/export/rastreo-lote/pdf?fecha=${fecha}`;
+  document.getElementById('btn-rastreo-excel').classList.remove('disabled');
+  document.getElementById('btn-rastreo-pdf').classList.remove('disabled');
+
+  if (!afectadas.length) {
+    el.style.display = '';
+    el.innerHTML = `<div class="alert alert-success mb-0"><i class="ti ti-circle-check"></i> No se encontraron ventas con el lote <strong>${loteLabel}</strong>.</div>`;
+    return;
+  }
+
+  // Totales
+  let totalUnidades = 0, totalLitros = 0;
+  const filas = afectadas.map(v => {
+    const itemsDelLote = v.items.filter(i => i.fecha_envasado === fecha);
+    const uds  = itemsDelLote.reduce((s, i) => s + i.cantidad, 0);
+    const lts  = itemsDelLote.reduce((s, i) => s + i.litros_total, 0);
+    totalUnidades += uds; totalLitros += lts;
+    const prods = itemsDelLote.map(i => `${i.cantidad.toLocaleString('es-AR')} u ${i.producto}`).join(', ');
+    // lotes de compra origen
+    const lotesOrigen = [...new Set(v.consumo_lotes.map(c => c.lote_id))].join(', ');
+    return `<tr>
+      <td><span class="badge-venta">${v.id}</span></td>
+      <td><strong>${v.cliente}</strong></td>
+      <td>${fmtFecha(v.fecha)}</td>
+      <td>${v.factura}</td>
+      <td style="font-size:12px">${prods}</td>
+      <td class="fw-bold text-end">${lts.toLocaleString('es-AR')} L</td>
+      <td style="font-size:11px;color:#64748b">${lotesOrigen}</td>
+    </tr>`;
+  }).join('');
+
+  el.style.display = '';
+  el.innerHTML = `
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+      <i class="ti ti-alert-triangle fs-5"></i>
+      <div>Lote <strong>${loteLabel}</strong> distribuido en <strong>${afectadas.length} venta${afectadas.length>1?'s':''}</strong>
+      — ${totalUnidades.toLocaleString('es-AR')} unidades — ${totalLitros.toLocaleString('es-AR')} L</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="table tbl mb-0" style="font-size:13px">
+        <thead><tr>
+          <th>Venta</th><th>Cliente</th><th>Fecha</th><th>Factura</th><th>Productos</th><th class="text-end">Litros</th><th>Lote compra</th>
+        </tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>`;
+}
+function limpiarAlerta() {
+  document.getElementById('alerta-fecha').value = '';
+  document.getElementById('alerta-result').style.display = 'none';
+  document.getElementById('alerta-result').innerHTML = '';
+  document.getElementById('btn-rastreo-excel').classList.add('disabled');
+  document.getElementById('btn-rastreo-pdf').classList.add('disabled');
+}
+
+function limpiarFiltrosTraz() {
+  document.getElementById('fil-proveedor').value = '';
+  document.getElementById('fil-desde').value     = '';
+  document.getElementById('fil-hasta').value     = '';
+  document.getElementById('fil-envasado').value  = '';
+  aplicarFiltrosTraz();
+}
+function filtrarPorProveedor() { aplicarFiltrosTraz(); }
+
+function getBaseFiltered() {
+  const prv      = document.getElementById('fil-proveedor').value.toLowerCase();
+  const desde    = document.getElementById('fil-desde').value;
+  const hasta    = document.getElementById('fil-hasta').value;
+  const envasado = document.getElementById('fil-envasado').value;
+  let lf = _lotes, vf = _ventas;
+  if (prv)      { lf = lf.filter(l => l.proveedor.toLowerCase().includes(prv)); vf = vf.filter(v => v.consumo_lotes.some(c => c.proveedor.toLowerCase().includes(prv))); }
+  if (desde)    { lf = lf.filter(l => l.fecha >= desde); vf = vf.filter(v => v.fecha >= desde); }
+  if (hasta)    { lf = lf.filter(l => l.fecha <= hasta); vf = vf.filter(v => v.fecha <= hasta); }
+  if (envasado) { vf = vf.filter(v => v.items?.some(i => i.fecha_envasado === envasado)); lf = []; }
+  return { lf, vf };
+}
 function filtrarLotes() {
-  const q   = document.getElementById('busq-lote').value.toLowerCase().trim();
-  const prv = document.getElementById('fil-proveedor').value.toLowerCase();
-  let res = prv ? _lotes.filter(l => l.proveedor.toLowerCase().includes(prv)) : _lotes;
-  if (q) res = res.filter(l =>
+  const q = document.getElementById('busq-lote').value.toLowerCase().trim();
+  let { lf } = getBaseFiltered();
+  if (q) lf = lf.filter(l =>
     l.id.toLowerCase().includes(q) || l.proveedor.toLowerCase().includes(q) ||
     (l.factura||'').toLowerCase().includes(q) || (l.remito||'').toLowerCase().includes(q) ||
     l.fecha.includes(q) || l.producto.toLowerCase().includes(q)
   );
-  renderResLotes(res);
+  renderResLotes(lf);
 }
 function filtrarVentas() {
-  const q   = document.getElementById('busq-venta').value.toLowerCase().trim();
-  const prv = document.getElementById('fil-proveedor').value.toLowerCase();
-  let res = prv ? _ventas.filter(v => v.consumo_lotes.some(c => c.proveedor.toLowerCase().includes(prv))) : _ventas;
-  if (q) res = res.filter(v =>
+  const q = document.getElementById('busq-venta').value.toLowerCase().trim();
+  let { vf } = getBaseFiltered();
+  if (q) vf = vf.filter(v =>
     v.id.toLowerCase().includes(q) || v.cliente.toLowerCase().includes(q) ||
     (v.factura||'').toLowerCase().includes(q) || (v.remito||'').toLowerCase().includes(q) ||
-    v.fecha.includes(q) || (v.tipo_aceite||'').toLowerCase().includes(q)
+    v.fecha.includes(q) || (v.tipo_aceite||'').toLowerCase().includes(q) ||
+    v.items?.some(i => (i.fecha_envasado||'').includes(q))
   );
-  renderResVentas(res);
+  renderResVentas(vf);
 }
 
 function renderResLotes(lista) {
@@ -881,7 +1161,7 @@ function renderResLotes(lista) {
          onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''"
          onclick="buscarLote('${l.id}')">
       <div><span class="badge-lote me-1">${l.id}</span><strong>${l.proveedor}</strong><span class="text-muted ms-1" style="font-size:11px">${l.producto}</span></div>
-      <div class="text-muted">${l.fecha}</div>
+      <div class="text-muted">${fmtFecha(l.fecha)}</div>
     </div>`).join('');
 }
 function renderResVentas(lista) {
@@ -893,7 +1173,7 @@ function renderResVentas(lista) {
          onmouseover="this.style.background='#f0fff4'" onmouseout="this.style.background=''"
          onclick="buscarVenta('${v.id}')">
       <div><span class="badge-venta me-1">${v.id}</span><strong>${v.cliente}</strong></div>
-      <div class="text-muted">${v.fecha}</div>
+      <div class="text-muted">${fmtFecha(v.fecha)}</div>
     </div>`).join('');
 }
 
@@ -915,7 +1195,7 @@ async function buscarLote(id) {
   document.getElementById('result-traz').innerHTML = `
     <div class="result-box">
       <h5 class="fw-bold mb-1">${l.id} — ${l.proveedor}</h5>
-      <div class="text-muted mb-3" style="font-size:12px">Factura: ${l.factura} | Remito: ${l.remito||'-'} | ${l.fecha}</div>
+      <div class="text-muted mb-3" style="font-size:12px">Factura: ${l.factura} | Remito: ${l.remito||'-'} | ${fmtFecha(l.fecha)}</div>
       <div class="row g-3 mb-3">
         <div class="col-4 text-center"><div class="fw-bold fs-5">${l.litros_total.toLocaleString('es-AR')}</div><div class="text-muted" style="font-size:11px">L TOTAL</div></div>
         <div class="col-4 text-center"><div class="fw-bold fs-5 text-danger">${parseFloat(usado).toLocaleString('es-AR')}</div><div class="text-muted" style="font-size:11px">L USADO</div></div>
@@ -927,7 +1207,7 @@ async function buscarLote(id) {
         r.ventas.map(v => {
           const c = v.consumo_lotes.find(x => x.lote_id === id);
           return `<div class="d-flex justify-content-between align-items-center border-bottom py-2">
-            <div><span class="badge-venta">${v.id}</span> <strong>${v.cliente}</strong> <span class="text-muted">${v.fecha}</span></div>
+            <div><span class="badge-venta">${v.id}</span> <strong>${v.cliente}</strong> <span class="text-muted">${fmtFecha(v.fecha)}</span></div>
             <div class="fw-bold">${c.litros_usados.toLocaleString('es-AR')} L</div>
           </div>`;
         }).join('')}
@@ -941,11 +1221,14 @@ async function buscarVenta(id) {
   document.getElementById('result-traz').innerHTML = `
     <div class="result-box">
       <h5 class="fw-bold mb-1">${v.id} — ${v.cliente}</h5>
-      <div class="text-muted mb-3" style="font-size:12px">Factura: ${v.factura} | Remito: ${v.remito||'-'} | ${v.fecha}</div>
+      <div class="text-muted mb-3" style="font-size:12px">Factura: ${v.factura} | Remito: ${v.remito||'-'} | ${fmtFecha(v.fecha)}</div>
       ${v.tipo_aceite ? `<div class="mb-2"><span class="badge bg-primary">${v.tipo_aceite}</span></div>` : ''}
       <h6 class="fw-bold">Productos:</h6>
-      ${v.items.map(i => `<div class="d-flex justify-content-between border-bottom py-1">
-        <div>${i.cantidad.toLocaleString('es-AR')} u × <strong>${i.producto}</strong></div>
+      ${v.items.map(i => `<div class="d-flex justify-content-between align-items-center border-bottom py-1">
+        <div>
+          ${i.cantidad.toLocaleString('es-AR')} u × <strong>${i.producto}</strong>
+          ${i.fecha_envasado ? `<span class="ms-2 badge bg-warning text-dark" style="font-size:11px"><i class="ti ti-droplet"></i> ${fmtLoteBotella(i.fecha_envasado)}</span>` : ''}
+        </div>
         <div class="text-muted">${i.litros_total.toLocaleString('es-AR')} L</div>
       </div>`).join('')}
       <div class="d-flex justify-content-between fw-bold py-2 mb-3">
@@ -1016,6 +1299,44 @@ async function guardarProducto() {
     { method:id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({nombre}) }).then(r=>r.json());
   if (r.ok) { bootstrap.Modal.getInstance(document.getElementById('modalPrd')).hide(); toast('✓ Guardado','success'); cargarProductos(); cargarSelectsImportar(); }
   else toast('Error: '+r.error,'danger');
+}
+
+// ── ABM Productos de Venta ────────────────────────────────────────────────────
+async function cargarProdVenta() {
+  const ps = await fetch('/api/productos-venta').then(r => r.json());
+  document.getElementById('tabla-prod-venta').innerHTML = ps.map(p => `<tr>
+    <td><span class="badge-prd">${p.id}</span></td>
+    <td><strong>${p.nombre}</strong></td>
+    <td><span class="badge bg-light text-dark border" style="font-size:12px">${p.litros_por_unidad} L/u</span></td>
+    <td>
+      <button class="btn btn-sm btn-outline-secondary me-1" onclick="abrirModalPV('${p.id}','${escapar(p.nombre)}',${p.litros_por_unidad})">✏️</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="eliminarPV('${p.id}')">🗑</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="4" class="text-center text-muted py-4">Sin productos de venta cargados</td></tr>';
+}
+function abrirModalPV(id='',nombre='',litros='') {
+  document.getElementById('pv-id').value     = id;
+  document.getElementById('pv-nombre').value = nombre;
+  document.getElementById('pv-litros').value = litros || '';
+  document.getElementById('modalPVTitulo').textContent = id ? `Editar ${id}` : 'Nuevo producto de venta';
+  new bootstrap.Modal(document.getElementById('modalPV')).show();
+}
+async function guardarPV() {
+  const id     = document.getElementById('pv-id').value;
+  const nombre = document.getElementById('pv-nombre').value.trim();
+  const litros = parseFloat(document.getElementById('pv-litros').value);
+  if (!nombre) { toast('El nombre es obligatorio','warning'); return; }
+  if (!litros || litros <= 0) { toast('Los litros por unidad son obligatorios','warning'); return; }
+  const r = await fetch(id ? `/api/productos-venta/${id}` : '/api/productos-venta',
+    { method: id ? 'PUT' : 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ nombre, litros_por_unidad: litros }) }).then(r => r.json());
+  if (r.ok) { bootstrap.Modal.getInstance(document.getElementById('modalPV')).hide(); toast('✓ Guardado','success'); cargarProdVenta(); }
+  else toast('Error: '+r.error,'danger');
+}
+async function eliminarPV(id) {
+  if (!confirm(`¿Eliminar ${id}?`)) return;
+  const r = await fetch(`/api/productos-venta/${id}`,{method:'DELETE'}).then(r=>r.json());
+  r.ok ? (toast('✓ Eliminado','success'), cargarProdVenta()) : toast('Error: '+r.error,'danger');
 }
 async function eliminarProducto(id) {
   if (!confirm(`¿Eliminar ${id}?`)) return;
