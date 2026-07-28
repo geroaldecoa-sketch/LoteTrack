@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 
 // ── PostgreSQL + cache en memoria ─────────────────────────────────────────────
 let pool;
-let _data   = { proveedores: [], productos: [], lotes: [], ventas: [] };
+let _data   = { proveedores: [], productos: [], productos_venta: [], lotes: [], ventas: [] };
 let _config = { empresa: 'Base de Alimentos Navarro S.A.', password: 'lotemania', logo: null };
 
 async function initDB() {
@@ -27,7 +27,7 @@ async function initDB() {
   console.log('✓ PostgreSQL conectado');
   const rd = await pool.query("SELECT data FROM lotetrack_datos  WHERE id='main'");
   const rc = await pool.query("SELECT data FROM lotetrack_config WHERE id='main'");
-  if (rd.rows[0]) _data   = { proveedores:[], productos:[], lotes:[], ventas:[], ...rd.rows[0].data };
+  if (rd.rows[0]) _data   = { proveedores:[], productos:[], productos_venta:[], lotes:[], ventas:[], ...rd.rows[0].data };
   if (rc.rows[0]) _config = { empresa:'Base de Alimentos Navarro S.A.', password:'lotemania', logo:null, ...rc.rows[0].data };
   if (_config.logo) _config.logo = Buffer.from(_config.logo, 'base64');
 }
@@ -60,7 +60,7 @@ app.get('/logo-empresa.png', (req, res) => {
 function nuevoId(p, lista) { return `${p}-${String(lista.length + 1).padStart(3, '0')}`; }
 
 // ── Conversiones ──────────────────────────────────────────────────────────────
-const LITROS_PROD = { '900ml': 0.9, '5L': 5, '10L': 10 };
+// LITROS_PROD ya no es hardcodeado — se usa el campo litros_por_unidad de cada producto en DB
 
 // ── Parser de facturas PDF ────────────────────────────────────────────────────
 function parsearFactura(texto) {
@@ -69,19 +69,29 @@ function parsearFactura(texto) {
   const esVenta  = /CLIENTE\s*:/i.test(t);
   const esCompra = /SE[ÑN]OR(?:ES|\/ES)?\s*:/i.test(t);
 
-  // ── Fecha: "FECHA: DD/MM/YYYY" evitando "Fecha de Vencimiento"
+  // ── Fecha de factura ─────────────────────────────────────────────────────────
   let fecha = null;
-  // Busca todas las fechas en el texto y toma la que está después de "FECHA:"
   const todasFechas = [...t.matchAll(/(\d{2}\/\d{2}\/\d{4})/g)];
-  const idxFecha = t.search(/\bFECHA\s*[:\-]/i);
-  if (idxFecha >= 0) {
-    const despues = todasFechas.find(m => m.index > idxFecha && m.index < idxFecha + 30);
-    if (despues) fecha = despues[1].split('/').reverse().join('-');
+
+  // 1. Fecha justo ANTES de "FECHA:" (PDFs donde el dato precede a la etiqueta)
+  const mAntes = t.match(/(\d{2}\/\d{2}\/\d{4})\s*\n\s*FECHA\s*:/i);
+  if (mAntes) fecha = mAntes[1].split('/').reverse().join('-');
+
+  // 2. "FECHA:" seguido de la fecha (layout normal)
+  if (!fecha) {
+    const mDespues = t.match(/FECHA\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if (mDespues) fecha = mDespues[1].split('/').reverse().join('-');
   }
-  // Fallback: primera fecha que NO sea la de vencimiento
-  if (!fecha && todasFechas.length) {
+
+  // 3. Fallback: primera fecha que NO esté pegada a texto (ej: "07/07/2026CUENTA")
+  //    y NO esté cerca de "vencimiento"
+  if (!fecha) {
     const idxVto = t.search(/vencimiento/i);
-    const candidata = todasFechas.find(m => idxVto < 0 || Math.abs(m.index - idxVto) > 40);
+    const candidata = todasFechas.find(m => {
+      const charDespues = t[m.index + 10]; // carácter justo después de la fecha
+      if (charDespues && /[A-Za-z]/.test(charDespues)) return false; // fecha pegada a texto → skip
+      return idxVto < 0 || Math.abs(m.index - idxVto) > 50;
+    });
     if (candidata) fecha = candidata[1].split('/').reverse().join('-');
   }
 
@@ -121,19 +131,24 @@ function parsearFactura(texto) {
     // ── Proveedor: en facturas tipo JM Falavigna, "Razón social:" precede a "Inicio de Actividades:"
     let proveedor = '';
 
-    // 1. Línea antes de "Inicio de Actividades" (la más fiable en facturas AFIP)
-    const mAntes = t.match(/([^\n\r]+)\r?\n[^\n\r]*[Ii]nicio\s+de\s+[Aa]ctividades/);
-    if (mAntes) {
-      proveedor = mAntes[1].trim()
-        .replace(/[Rr]az[oó0]n\s*[Ss]ocial\s*:\s*/i, '')
-        .replace(/^.*:\s*/, '') // eliminar cualquier "Label:" al inicio
-        .trim();
+    // 1. Línea ANTES de "Razón social:" (en estas facturas el nombre viene encima de la etiqueta)
+    const mAntesRS = t.match(/([^\n\r]+)\r?\n[^\n\r]*[Rr]az[oó]n\s+[Ss]ocial\s*:/i);
+    if (mAntesRS) {
+      const candidato = mAntesRS[1].trim();
+      // Descartar si es otra etiqueta o texto genérico
+      if (candidato.length > 3 && !/domicilio|condici|fecha|cuit|ingr/i.test(candidato))
+        proveedor = candidato;
     }
 
-    // 2. "Razón social: XXX" o "Razon social: XXX" (cualquier encoding de ó)
+    // 2. Línea antes de "Inicio de Actividades" (fallback)
     if (!proveedor || proveedor.length < 3) {
-      const mRS = t.match(/[Rr][Aa][Zz].{0,3}[Nn]\s+[Ss][Oo][Cc][Ii][Aa][Ll]\s*:\s*([^\n\r]+)/);
-      if (mRS) proveedor = mRS[1].trim();
+      const mAntes = t.match(/([^\n\r]+)\r?\n[^\n\r]*[Ii]nicio\s+de\s+[Aa]ctividades/);
+      if (mAntes) {
+        proveedor = mAntes[1].trim()
+          .replace(/[Rr]az[oó]n\s*[Ss]ocial\s*:\s*/i, '')
+          .replace(/^.*:\s*/, '')
+          .trim();
+      }
     }
 
     // 3. Primera línea que contenga "S.A." o "S.R.L." y no sea BAN
@@ -154,34 +169,27 @@ function parsearFactura(texto) {
     // ── Toneladas y Producto
     let producto = '', toneladas = 0;
 
-    // Buscar la línea del detalle: "ACEITE ... S/REMITO XXXX-XXXXXXXX QTY PRECIO TOTAL"
-    const mLinea = t.match(/ACEITE[^\n]+/i);
-    if (mLinea) {
-      const linea = mLinea[0];
+    // Buscar la línea que contiene "ACEITE" — puede tener números antes o después
+    const mLineaIdx = t.search(/[^\n]*ACEITE[^\n]*/i);
+    if (mLineaIdx >= 0) {
+      // Tomar desde el inicio de esa línea (buscar el \n anterior)
+      const inicioLinea = t.lastIndexOf('\n', mLineaIdx) + 1;
+      const finLinea    = t.indexOf('\n', mLineaIdx);
+      const linea       = t.slice(inicioLinea, finLinea > 0 ? finLinea : undefined);
 
-      // Nombre: todo antes de S/REMITO o del primer número grande
-      const parteNombre = linea.split(/S\/REMITO/i)[0];
-      producto = parteNombre
-        .replace(/\s{2,}/g, ' ')
-        .trim()
-        .replace(/\s+\d.*$/, '') // cortar si queda algún número al final
-        .trim();
+      // Producto: parte descriptiva (entre ACEITE y S/REMITO)
+      const mProd = linea.match(/ACEITE[^S\d]*/i);
+      producto = mProd ? mProd[0].replace(/S\/REMITO.*/i, '').trim() : 'Aceite';
       if (!producto) producto = 'Aceite';
 
-      // Toneladas: quitar el número de remito y buscar el primer decimal pequeño
-      const lineaSinRemito = linea.replace(/S\/REMITO\s+[\d\-]+/gi, '');
+      // Toneladas: quitar remito y buscar el número pequeño con decimales
+      const lineaSinRemito = linea.replace(/S\/REMITO\s*[\d\-]+/gi, '');
 
-      // Patrón: número de 1-3 dígitos con exactamente 2 decimales, seguido de un número más grande (precio)
-      const mTon = lineaSinRemito.match(/\b(\d{1,3}[.,]\d{2})\s+[\d.,]{5,}/);
-      if (mTon) {
-        toneladas = parseFloat(mTon[1].replace(',', '.'));
-      } else {
-        // Fallback: todos los números < 500 con decimales en la línea
-        const nums = [...lineaSinRemito.matchAll(/\b(\d{1,3}[.,]\d{1,2})\b/g)]
-          .map(m => parseFloat(m[1].replace(',', '.')))
-          .filter(n => n > 0.5 && n < 500);
-        if (nums.length) toneladas = nums[0];
-      }
+      // Todos los números con decimales en la línea, < 500 (excluye precios grandes)
+      const nums = [...lineaSinRemito.matchAll(/\b(\d{1,3}[.,]\d{2})\b/g)]
+        .map(m => parseFloat(m[1].replace(',', '.')))
+        .filter(n => n > 0.5 && n < 500);
+      if (nums.length) toneladas = nums[0];
     }
 
     return { tipo: 'compra', fecha, factura, proveedor, remito, producto, toneladas };
@@ -302,9 +310,54 @@ app.put('/api/productos/:id', (req, res) => {
     const d = leer();
     const p = d.productos.find(x => x.id === req.params.id);
     if (!p) return res.status(404).json({ error: 'No encontrado' });
-    p.nombre = req.body.nombre || p.nombre;
+    if (req.body.nombre) p.nombre = req.body.nombre.trim();
     guardar(d);
     res.json({ ok: true, producto: p });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── PRODUCTOS DE VENTA CRUD ───────────────────────────────────────────────────
+app.get('/api/productos-venta', (req, res) => res.json(leer().productos_venta || []));
+
+app.post('/api/productos-venta', (req, res) => {
+  try {
+    const { nombre, litros_por_unidad } = req.body;
+    if (!nombre) return res.status(400).json({ error: 'El nombre es requerido' });
+    if (!litros_por_unidad || parseFloat(litros_por_unidad) <= 0)
+      return res.status(400).json({ error: 'La conversión de litros es obligatoria' });
+    const d = leer();
+    if (!d.productos_venta) d.productos_venta = [];
+    if (d.productos_venta.some(p => p.nombre.toLowerCase() === nombre.toLowerCase()))
+      return res.status(400).json({ error: 'Ya existe un producto de venta con ese nombre' });
+    const p = { id: nuevoId('PV', d.productos_venta), nombre: nombre.trim(), litros_por_unidad: parseFloat(litros_por_unidad) };
+    d.productos_venta.push(p);
+    guardar(d);
+    res.json({ ok: true, producto: p });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/productos-venta/:id', (req, res) => {
+  try {
+    const d = leer();
+    if (!d.productos_venta) d.productos_venta = [];
+    const p = d.productos_venta.find(x => x.id === req.params.id);
+    if (!p) return res.status(404).json({ error: 'No encontrado' });
+    if (req.body.nombre) p.nombre = req.body.nombre.trim();
+    if (req.body.litros_por_unidad) p.litros_por_unidad = parseFloat(req.body.litros_por_unidad);
+    guardar(d);
+    res.json({ ok: true, producto: p });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/productos-venta/:id', (req, res) => {
+  try {
+    const d = leer();
+    if (!d.productos_venta) d.productos_venta = [];
+    const idx = d.productos_venta.findIndex(x => x.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'No encontrado' });
+    d.productos_venta.splice(idx, 1);
+    guardar(d);
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -340,6 +393,8 @@ app.post('/api/lotes', (req, res) => {
     if (!fecha || !proveedor || !factura || !producto || !toneladas)
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     const d      = leer();
+    if (d.lotes.some(l => l.factura === factura))
+      return res.status(409).json({ error: `La factura de compra "${factura}" ya fue importada.` });
     const litros = parseFloat((parseFloat(toneladas) * 1080).toFixed(2));
     const lote   = {
       id: nuevoId('LOT', d.lotes), fecha, proveedor, factura,
@@ -418,14 +473,16 @@ function fifoDescontar(d, litrosPedidos, tipoProd) {
   return consumo_lotes;
 }
 
-function calcularItems(items) {
+function calcularItems(items, d) {
+  const pventa = d.productos_venta || [];
   let total = 0;
   const its = items.map(i => {
-    const f = LITROS_PROD[i.producto];
-    if (!f) throw new Error(`Producto inválido: ${i.producto}`);
+    const prod = pventa.find(p => p.nombre === i.producto);
+    const f = prod?.litros_por_unidad;
+    if (!f) throw new Error(`Producto de venta "${i.producto}" no encontrado o sin conversión de litros. Configuralo en Configuración → Productos de Venta.`);
     const l = parseFloat((i.cantidad * f).toFixed(2));
     total += l;
-    return { producto: i.producto, cantidad: i.cantidad, litros_unitarios: f, litros_total: l };
+    return { producto: i.producto, cantidad: i.cantidad, litros_unitarios: f, litros_total: l, fecha_envasado: i.fecha_envasado || null };
   });
   return { its, total: parseFloat(total.toFixed(2)) };
 }
@@ -438,8 +495,12 @@ app.post('/api/ventas', (req, res) => {
     if (!tipo_aceite)
       return res.status(400).json({ error: 'Falta especificar el tipo de aceite' });
 
+    if (items.some(i => !i.fecha_envasado))
+      return res.status(400).json({ error: 'El Lote Botella (fecha de llenado) es obligatorio en todos los productos.' });
     const d = leer();
-    const { its, total } = calcularItems(items);
+    if (d.ventas.some(v => v.factura === factura))
+      return res.status(409).json({ error: `La factura de venta "${factura}" ya fue registrada.` });
+    const { its, total } = calcularItems(items, d);
     const stock = d.lotes.filter(l => l.producto === tipo_aceite).reduce((s, l) => s + l.litros_disponibles, 0);
     if (stock < total) return res.status(400).json({ error: `Stock insuficiente de "${tipo_aceite}". Disponible: ${stock.toFixed(2)} L` });
 
@@ -467,8 +528,8 @@ app.put('/api/ventas/:id', (req, res) => {
 
     // Recalcular con nuevos items
     const tipo_aceite = req.body.tipo_aceite || venta.tipo_aceite;
-    const items  = req.body.items || venta.items.map(i => ({ producto: i.producto, cantidad: i.cantidad }));
-    const { its, total } = calcularItems(items);
+    const items  = req.body.items || venta.items.map(i => ({ producto: i.producto, cantidad: i.cantidad, fecha_envasado: i.fecha_envasado || null }));
+    const { its, total } = calcularItems(items, d);
     const stock = d.lotes.filter(l => !tipo_aceite || l.producto === tipo_aceite).reduce((s, l) => s + l.litros_disponibles, 0);
     if (stock < total) {
       // Revertir restauración
@@ -610,20 +671,18 @@ app.get('/api/export/pdf/lote/:id', (req, res) => {
 
   // Ventas destino
   const colsDest = [
-    { x: 40,  w: 58,  label: 'ID Venta' },
-    { x: 101, w: 60,  label: 'Fecha' },
-    { x: 164, w: 140, label: 'Cliente' },
-    { x: 307, w: 110, label: 'Factura' },
-    { x: 420, w: 70,  label: 'Litros usados', align: 'right' },
-    { x: 493, w: 62,  label: 'Total venta',   align: 'right' },
+    { x: 40,  w: 52,  label: 'ID Venta' },
+    { x: 95,  w: 58,  label: 'Fecha' },
+    { x: 156, w: 190, label: 'Cliente' },
+    { x: 349, w: 105, label: 'Factura' },
+    { x: 457, w: 98,  label: 'Litros usados', align: 'left' },
   ];
   pdfTabla(doc, colsDest,
     ventasLote.length ? ventasLote.map(v => {
       const c = v.consumo_lotes.find(x => x.lote_id === lote.id);
       return [v.id, v.fecha, v.cliente, v.factura,
-        (c?.litros_usados || 0).toLocaleString('es-AR') + ' L',
-        v.litros_total.toLocaleString('es-AR') + ' L'];
-    }) : [['—', '—', 'Sin ventas asociadas', '', '', '']],
+        (c?.litros_usados || 0).toLocaleString('es-AR') + ' L'];
+    }) : [['—', '—', 'Sin ventas asociadas', '', '']],
     'DESTINO — VENTAS QUE CONSUMIERON ESTE LOTE'
   );
   doc.end();
@@ -657,15 +716,21 @@ app.get('/api/export/pdf/venta/:id', (req, res) => {
   // Items
   pdfTabla(doc, [
     { x: 40,  w: 120, label: 'Producto' },
-    { x: 163, w: 90,  label: 'Cantidad (u)', align: 'right' },
-    { x: 256, w: 80,  label: 'L/unidad',     align: 'right' },
-    { x: 339, w: 90,  label: 'Litros Total',  align: 'right' },
-  ], venta.items.map(i => [
-    i.producto,
-    i.cantidad.toLocaleString('es-AR'),
-    i.litros_unitarios + ' L',
-    i.litros_total.toLocaleString('es-AR') + ' L',
-  ]), 'PRODUCTOS VENDIDOS');
+    { x: 163, w: 70,  label: 'Cantidad (u)', align: 'left' },
+    { x: 236, w: 60,  label: 'L/unidad',     align: 'left' },
+    { x: 299, w: 80,  label: 'Litros Total',  align: 'left' },
+    { x: 382, w: 173, label: 'Lote Botella',  align: 'left' },
+  ], venta.items.map(i => {
+    const fe = i.fecha_envasado;
+    const loteBotella = fe ? (() => { const [y,m,d] = fe.split('-'); return `L. ${d}/${m}/${y.slice(2)}`; })() : '-';
+    return [
+      i.producto,
+      i.cantidad.toLocaleString('es-AR'),
+      i.litros_unitarios + ' L',
+      i.litros_total.toLocaleString('es-AR') + ' L',
+      loteBotella,
+    ];
+  }), 'PRODUCTOS VENDIDOS');
 
   doc.moveDown(1);
 
@@ -674,14 +739,97 @@ app.get('/api/export/pdf/venta/:id', (req, res) => {
     { x: 40,  w: 58,  label: 'Lote' },
     { x: 101, w: 140, label: 'Proveedor' },
     { x: 244, w: 110, label: 'Factura compra' },
-    { x: 357, w: 60,  label: 'Fecha',        align: 'center' },
-    { x: 420, w: 135, label: 'Litros usados', align: 'right' },
+    { x: 357, w: 60,  label: 'Fecha',        align: 'left' },
+    { x: 420, w: 135, label: 'Litros usados', align: 'left' },
   ];
   pdfTabla(doc, colsOrig, venta.consumo_lotes.map(c => {
     const lote = d.lotes.find(l => l.id === c.lote_id);
     return [c.lote_id, c.proveedor, c.factura_compra,
       lote?.fecha || '-', c.litros_usados.toLocaleString('es-AR') + ' L'];
   }), 'ORIGEN (FIFO) — LOTES CONSUMIDOS');
+
+  doc.end();
+});
+
+// ── RASTREO LOTE BOTELLA — EXCEL + PDF ───────────────────────────────────────
+function ventasDelLote(d, fecha) {
+  return d.ventas.filter(v => v.items?.some(i => i.fecha_envasado === fecha));
+}
+function fmtLoteBot(f) {
+  if (!f) return '-';
+  const [y,m,d] = f.split('-');
+  return `L. ${d}/${m}/${y.slice(2)}`;
+}
+
+app.get('/api/export/rastreo-lote/excel', (req, res) => {
+  const { fecha } = req.query;
+  if (!fecha) return res.status(400).json({ error: 'Falta fecha' });
+  const d = leer();
+  const afectadas = ventasDelLote(d, fecha);
+  const rows = afectadas.flatMap(v => {
+    const items = v.items.filter(i => i.fecha_envasado === fecha);
+    return items.map(i => ({
+      'Venta': v.id,
+      'Cliente': v.cliente,
+      'Fecha Venta': v.fecha,
+      'Factura': v.factura,
+      'Remito': v.remito || '-',
+      'Producto': i.producto,
+      'Cantidad (u)': i.cantidad,
+      'Litros': i.litros_total,
+      'Lote Botella': fmtLoteBot(fecha),
+      'Lote Compra': [...new Set(v.consumo_lotes.map(c => c.lote_id))].join(', '),
+    }));
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Rastreo');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', `attachment; filename="rastreo-${fecha}.xlsx"`);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
+});
+
+app.get('/api/export/rastreo-lote/pdf', (req, res) => {
+  const { fecha } = req.query;
+  if (!fecha) return res.status(400).json({ error: 'Falta fecha' });
+  const d   = leer();
+  const cfg = leerConfig();
+  const afectadas = ventasDelLote(d, fecha);
+  const loteLabel = fmtLoteBot(fecha);
+  const doc = new PDFDoc({ margin: 40, size: 'A4', layout: 'landscape' });
+  res.setHeader('Content-Disposition', `attachment; filename="rastreo-${fecha}.pdf"`);
+  res.setHeader('Content-Type', 'application/pdf');
+  doc.pipe(res);
+
+  pdfHeader(doc, `Rastreo de Lote Botella — ${loteLabel}`, cfg.empresa, null);
+
+  const totalU = afectadas.reduce((s, v) => s + v.items.filter(i => i.fecha_envasado === fecha).reduce((a,i) => a+i.cantidad, 0), 0);
+  const totalL = afectadas.reduce((s, v) => s + v.items.filter(i => i.fecha_envasado === fecha).reduce((a,i) => a+i.litros_total, 0), 0);
+
+  doc.fontSize(10).font('Helvetica').fillColor('#444')
+    .text(`Distribución: ${afectadas.length} venta(s) — ${totalU.toLocaleString('es-AR')} unidades — ${totalL.toLocaleString('es-AR')} L`, 40)
+    .moveDown(0.8);
+
+  const filas = afectadas.flatMap(v => {
+    const items = v.items.filter(i => i.fecha_envasado === fecha);
+    return items.map(i => [
+      v.id, v.cliente, v.fecha, v.factura,
+      `${i.cantidad.toLocaleString('es-AR')} u ${i.producto}`,
+      i.litros_total.toLocaleString('es-AR') + ' L',
+      [...new Set(v.consumo_lotes.map(c => c.lote_id))].join(', '),
+    ]);
+  });
+
+  // Landscape: 841px - 80px márgenes = 761px útiles
+  pdfTabla(doc, [
+    { x: 40,  w: 55,  label: 'Venta' },
+    { x: 98,  w: 230, label: 'Cliente' },
+    { x: 331, w: 65,  label: 'Fecha',     align: 'left' },
+    { x: 399, w: 115, label: 'Factura' },
+    { x: 517, w: 130, label: 'Producto' },
+    { x: 650, w: 60,  label: 'Litros',    align: 'left' },
+    { x: 713, w: 88,  label: 'Lote Compra' },
+  ], filas, 'CLIENTES QUE RECIBIERON ESTE LOTE');
 
   doc.end();
 });
@@ -704,18 +852,24 @@ function pdfTabla(doc, cols, filas, titulo) {
   }
   const yH = doc.y;
   const rowH = 14;
+  // Ancho total calculado desde las columnas
+  const totalW = cols[cols.length - 1].x + cols[cols.length - 1].w - cols[0].x;
   // Cabecera
-  doc.rect(40, yH, 515, rowH).fill('#0d1b4b');
+  doc.rect(40, yH, totalW, rowH).fill('#0d1b4b');
   cols.forEach(c => doc.fontSize(7.5).font('Helvetica-Bold').fillColor('white')
     .text(c.label, c.x, yH + 3, { width: c.w, align: c.align || 'left', lineBreak: false }));
   doc.fillColor('black');
   let y = yH + rowH + 1;
   filas.forEach((fila, ri) => {
     if (y > 750) { doc.addPage(); y = 40; }
-    if (ri % 2 === 1) doc.rect(40, y - 1, 515, rowH).fill('#f4f6f8').fillColor('black');
+    if (ri % 2 === 1) doc.rect(40, y - 1, totalW, rowH).fill('#f4f6f8').fillColor('black');
     cols.forEach((c, ci) => {
-      doc.fontSize(7.5).font('Helvetica').fillColor('#222')
-         .text(String(fila[ci] ?? ''), c.x, y + 2, { width: c.w, align: c.align || 'left', lineBreak: false });
+      let txt = String(fila[ci] ?? '');
+      // Truncar con … si el texto no entra en la columna
+      doc.fontSize(7.5).font('Helvetica');
+      while (txt.length > 1 && doc.widthOfString(txt) > c.w - 2) txt = txt.slice(0, -1);
+      if (txt !== String(fila[ci] ?? '')) txt = txt.slice(0, -1) + '…';
+      doc.fillColor('#222').text(txt, c.x, y + 2, { width: c.w, align: c.align || 'left', lineBreak: false });
     });
     y += rowH;
   });
@@ -738,6 +892,43 @@ function pdfHeader(doc, titulo, empresa, filtros) {
 }
 
 // ── EXPORTAR (con filtros) ────────────────────────────────────────────────────
+app.get('/api/export/excel-compras', (req, res) => {
+  const d = leer();
+  const { ls } = aplicarFiltros(d, req.query);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ls.map(l => ({
+    'Fecha':      l.fecha,
+    'Factura':    l.factura,
+    'Remito':     l.remito || '',
+    'Proveedor':  l.proveedor,
+    'Producto':   l.producto,
+    'Toneladas':  l.toneladas,
+    'Litros':     l.litros_total,
+  }))), 'Facturas de Compra');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', 'attachment; filename="compras.xlsx"');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
+});
+
+app.get('/api/export/excel-ventas', (req, res) => {
+  const d = leer();
+  const { vs } = aplicarFiltros(d, req.query);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(vs.map(v => ({
+    'Fecha':        v.fecha,
+    'Factura':      v.factura,
+    'Remito':       v.remito || '',
+    'Cliente':      v.cliente,
+    'Tipo aceite':  v.tipo_aceite || '',
+    'Litros':       v.litros_total,
+  }))), 'Facturas de Venta');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', 'attachment; filename="ventas.xlsx"');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
+});
+
 app.get('/api/export/excel', (req, res) => {
   const d = leer();
   const { ls, vs } = aplicarFiltros(d, req.query);
@@ -788,9 +979,9 @@ app.get('/api/export/pdf', (req, res) => {
     { x: 95,  w: 60,  label: 'Fecha' },
     { x: 158, w: 115, label: 'Proveedor' },
     { x: 276, w: 105, label: 'Producto' },
-    { x: 384, w: 57,  label: 'L Total',   align: 'right' },
-    { x: 444, w: 57,  label: 'L Dispon.', align: 'right' },
-    { x: 504, w: 51,  label: '%',         align: 'right' },
+    { x: 384, w: 57,  label: 'L Total',   align: 'left' },
+    { x: 444, w: 57,  label: 'L Dispon.', align: 'left' },
+    { x: 504, w: 51,  label: '%',         align: 'left' },
   ];
   pdfTabla(doc, colsLote, ls.map(l => {
     const pct = l.litros_total > 0 ? ((l.litros_disponibles / l.litros_total) * 100).toFixed(1) + '%' : '0%';
@@ -809,7 +1000,7 @@ app.get('/api/export/pdf', (req, res) => {
     { x: 95,  w: 60,  label: 'Fecha' },
     { x: 158, w: 115, label: 'Cliente' },
     { x: 276, w: 105, label: 'Tipo Aceite' },
-    { x: 384, w: 57,  label: 'Litros',  align: 'right' },
+    { x: 384, w: 57,  label: 'Litros',  align: 'left' },
     { x: 444, w: 111, label: 'Lotes origen' },
   ];
   pdfTabla(doc, colsVta, vs.map(v => [
